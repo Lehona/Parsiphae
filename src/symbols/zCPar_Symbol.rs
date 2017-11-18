@@ -145,16 +145,22 @@ pub struct zSymbol {
 
     pub element_count: ArrayIndex,
 
-    pub initialization: Option<ConstInitialization>
+    pub initialization: Option<ConstInitialization>,
+
+    pub func_body: Option<StatementList>
 }
 
 impl zSymbol {
     fn new(name: String, parent: Option<String>, content: Option<zCONTENT>, offset: zOFFSET,
-           typ: zTYPE, flags: zFLAG, array_size: Option<ArrayIndex>, initialization: Option<ConstInitialization>) -> Self {
-        zSymbol {name, parent, content, offset, typ, flags, element_count: array_size.unwrap_or(ArrayIndex::Number(1)), initialization }
+           typ: zTYPE, flags: zFLAG, array_size: Option<ArrayIndex>,
+           initialization: Option<ConstInitialization>, func_body: Option<StatementList> ) -> Self {
+
+        zSymbol {name, parent, content, offset, typ, flags,
+            element_count: array_size.unwrap_or(ArrayIndex::Number(1)),
+            initialization, func_body: func_body }
     }
 
-    pub fn from_func(func: &Function) -> Self {
+    pub fn from_func(func: &mut Function) -> Self {
         zSymbol::new(func.name.to_string(),
                      None,
                      None,
@@ -162,7 +168,8 @@ impl zSymbol {
                      zTYPE::Func,
                      zFLAG::RETURN | zFLAG::CONST,
                      Some(ArrayIndex::Number(func.params.len() as i32)),
-                     None)
+                     None,
+                     func.body.take())
     }
 
     pub fn from_const_decl(con: &ConstantDeclaration, parent: Option<String>) -> Self {
@@ -185,7 +192,8 @@ impl zSymbol {
              typ,
              flag,
              None,
-             Some(ConstInitialization::single(con.value.clone()))
+             Some(ConstInitialization::single(con.value.clone())),
+             None
         )
     }
 
@@ -206,6 +214,7 @@ impl zSymbol {
                     zTYPE::from_str(&var.typ),
                     flag,
                     var.array_size.clone(),
+                    None,
                     None)
     }
 
@@ -222,6 +231,7 @@ impl zSymbol {
                      zTYPE::Class,
                      zFLAG::NONE,
                      Some(ArrayIndex::Number(class.members.len() as i32)),
+                     None,
                      None
                 )
     }
@@ -234,6 +244,7 @@ impl zSymbol {
                         zTYPE::Instance(inst.class.to_string()),
                         zFLAG::NONE,
                         Some(ArrayIndex::Number(0)),
+                        None,
                         None)
     }
 
@@ -245,6 +256,7 @@ impl zSymbol {
                         zTYPE::Prototype,
                         zFLAG::NONE,
                         Some(ArrayIndex::Number(0)),
+                        None,
                         None)
     }
 
@@ -256,7 +268,8 @@ impl zSymbol {
                 zTYPE::from_str(&const_array.typ),
                 zFLAG::CONST,
                 Some(const_array.array_size.clone()),
-                Some(ConstInitialization::array(const_array.values.clone())))
+                Some(ConstInitialization::array(const_array.values.clone())),
+                None)
     }
 
     pub fn to_string(&self) -> String {

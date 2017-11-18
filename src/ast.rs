@@ -388,7 +388,7 @@ pub struct Function {
     pub typ: String,
     pub name: String,
     pub params: Vec<VariableDeclaration>,
-    pub body: StatementList
+    pub body: Option<StatementList>
 }
 
 #[derive(Clone)]

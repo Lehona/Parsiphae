@@ -179,7 +179,11 @@ fn walk_statement_list(statements: &StatementList) -> String {
 }
 
 pub fn walk_func_decl(func: &Function) -> String {
-    format!("func {} {}({}) {{\n{}}}", func.typ, func.name, walk_param_list(&func.params), walk_statement_list(&func.body))
+    format!("func {} {}({}) {{\n{}}}",
+            func.typ,
+            func.name,
+            walk_param_list(&func.params),
+            walk_statement_list(&func.body.as_ref().unwrap()))
 }
 
 pub fn walk_class_decl(class: &Class) -> String {

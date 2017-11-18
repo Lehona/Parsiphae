@@ -85,7 +85,7 @@ pub fn parse_file(path: &Path) -> Result<Vec<zSymbol>, &'static str> {
     );*/
 
     let result = parsed.expect("failed to parse")
-        .iter()
+        .iter_mut()
         .flat_map(|decl|
             collect_declaration(decl).into_iter()
         )

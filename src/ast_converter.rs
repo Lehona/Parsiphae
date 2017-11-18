@@ -52,7 +52,7 @@ pub fn make_if(branches: Vec<IfBranch>, else_branch: Option<StatementList>) -> I
 
 pub fn make_func(typ: String, name: String, params: Vec<VariableDeclaration>, body: StatementList) -> Function {
 
-    Function { typ, name, params, body}
+    Function { typ, name, params, body: Some(body)}
 }
 
 pub fn make_var_declaration(typ: String, vec: Vec<(String, Option<ArrayIndex>)>) -> Vec<VariableDeclaration> {
