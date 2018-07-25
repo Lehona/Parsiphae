@@ -105,7 +105,7 @@ mod tests {
         }
     }
 
-    fn make_binary_exp_int(op: &[u8], left: i32, right: i32) -> Expression {
+    fn make_binary_exp_int(op: &[u8], left: i64, right: i64) -> Expression {
         Expression::Binary(Box::new(BinaryExpression::new(
             BinaryOperator::from(op),
             Expression::Int(left),

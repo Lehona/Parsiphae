@@ -18,7 +18,6 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
     let parent = parent_dir(path)?;
     let dir = parent.to_string_lossy();
 
-    println!("{:?}", dir);
     let mut vec = Vec::new();
 
     let lines = content
@@ -28,7 +27,6 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
         .collect::<Vec<String>>();
 
     for line in lines {
-        println!("{}", &line);
         for entry in glob(&line).unwrap() {
             match entry {
                 Ok(path) => {
@@ -51,7 +49,7 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
                     };
 
                     match extension.as_ref() {
-                        "D" => {println!("{:?}", &path); vec.push(path);},
+                        "D" => {vec.push(path);},
                         "SRC" => {
                             let inner_vec = parse_src(path)?;
                             vec.extend(inner_vec.into_iter());
