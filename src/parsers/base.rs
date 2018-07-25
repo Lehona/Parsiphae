@@ -1,34 +1,90 @@
-use pom::parser::*;
+use inner_errors::ParserError;
+use types::*;
 
-
-pub fn string_parser() -> Parser<'static, u8, String> {
-    let parser = sym(b'"')
-        * none_of(b"\"").repeat(..).collect().map(|vec|String::from_utf8_lossy(&vec).to_string())
-        - sym(b'"');
-
-    parser
+fn is_not_quote(input: u8) -> bool {
+    input != b'\"'
 }
 
-pub fn number_parser() -> Parser<'static, u8, i32> {
-    let integer = one_of(b"0123456789").repeat(1..);
-    let number = sym(b'-').opt() + integer;
-    let val = number.collect().convert(String::from_utf8).convert(|str|str.parse::<i32>());
-    val
+fn convert_string_literal(input: Input) -> StringLiteral {
+    StringLiteral::new(&input.0)
 }
 
-pub fn float() -> Parser<'static, u8, f32> {
-    let parser = number_parser() - sym(b'.') + number_parser();
+named!(pub string_parser<Input, StringLiteral, ParserError>, fix_error!(ParserError, map!(
+    delimited!(
+        tag!("\""),
+        take_while!(is_not_quote),
+        tag!("\"")
+    ),
+    convert_string_literal
+)));
 
-    parser.collect().map(String::from_utf8).map(|s|s.unwrap().parse::<f32>().unwrap())
-}
+named!(pub number_parser<Input, i64, ParserError>, fix_error!(ParserError, flat_map!(
+    recognize!(
+        tuple!(
+            opt!(char!('-')),
+            is_a!("0123456789")
+    )),
+    parse_to!(i64)
+)));
 
+named!(pub float_parser<Input, f32, ParserError>, fix_error!(ParserError, flat_map!(
+    recognize!(
+        tuple!(
+            opt!(tag!("-")),
+            is_a!("0123456789"),
+            char!('.'),
+            is_a!("0123456789")
+         )
+    ),
+    parse_to!(f32)
+)));
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nom::ErrorKind;
+    use tests::utility::*;
 
-const IDENTIFIER_BEGIN: &'static [u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
-const IDENTIFIER_END: &'static [u8] =   b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_^@1234567890\xC4";
+    #[test]
+    pub fn test_string_parser() {
+        test_parser_done(
+            string_parser,
+            b"\"hello world\"",
+            StringLiteral::new(b"hello world"),
+            b"",
+        );
 
-pub fn identifier() -> Parser<'static, u8, String> {
-    let name = one_of(IDENTIFIER_BEGIN) + one_of(IDENTIFIER_END).repeat(0..);
+        test_parser_done(string_parser, b"\"\"", StringLiteral::new(b""), b"");
 
-    name.collect().map(|vec|String::from_utf8_lossy(&vec).to_string())
+        test_parser_done(
+            string_parser,
+            b"\"hello\"world",
+            StringLiteral::new(b"hello"),
+            b"world",
+        );
+
+        test_parser_error(string_parser, b"\"hello", incomplete_result());
+        test_parser_error(string_parser, b"", incomplete_result());
+    }
+
+    #[test]
+    pub fn test_number_parser() {
+        test_parser_done(number_parser, b"-1", -1, b"");
+        test_parser_done(number_parser, b"15", 15, b"");
+
+        test_parser_error(
+            number_parser,
+            b"xxx",
+            failure_result(b"xxx", ErrorKind::IsA),
+        );
+    }
+
+    #[test]
+    pub fn test_float_parser() {
+        test_parser_done(float_parser, b"-1.0", -1.0, b"");
+        test_parser_done(float_parser, b"15.775", 15.775, b"");
+
+        test_parser_error(float_parser, b"xxx", failure_result(b"xxx", ErrorKind::IsA));
+    }
+
 }

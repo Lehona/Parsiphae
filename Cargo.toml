@@ -1,12 +1,17 @@
 [package]
-name = "parser"
+name = "parsiphae"
 version = "0.1.0"
-authors = ["Lehona"]
+authors = ["Leon von Mulert <leonvonmulert@gmail.com>"]
 
 [dependencies]
-pom = "1.0.1"
-itertools = "0.7.1"
-regex = "0.2.2"
+clap = "2.32.0"
+encoding = "0.2.33"
 glob = "0.2.11"
-bitflags = "1.0"
+lazy_static = "1.0.1"
 time = "0.1"
+
+[dependencies.nom]
+version = "4.0.0"
+features = ["verbose-errors"]
+
+

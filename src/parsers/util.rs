@@ -1,71 +1,141 @@
-use pom::parser::*;
-use std::fmt::*;
-use pom::{Input, Train};
+use inner_errors::ParserError;
+use types::Input;
 
-
-pub trait ExpectParser<'a, I, O> where I: 'static, O: 'static {
-    fn expect(self, msg: &'static str) -> Parser<'a, I, O>;
+pub fn flatten_vec<T>(vec: Vec<Vec<T>>) -> Vec<T> {
+    vec.into_iter()
+        .flat_map(|inner| inner.into_iter())
+        .collect()
 }
 
-
-impl<'a, I: 'static, O: 'static> ExpectParser<'a, I, O> for Parser <'a, I, O> {
-    fn expect(self, msg: &'static str) -> Parser<'a, I, O>
-        where I: 'static
-    {
-        Parser::new(move |input: &mut Input<I>| {
-            Ok(self.parse(input).expect(msg))
-        })
+macro_rules! one_of_tag {
+    ($first:expr $(, $op:expr)*) => {
+        |input: Input| gws!(input, fix_error!(ParserError, alt!(
+            tag!($first)
+            $(
+            | tag!($op)
+            )*
+        )))
     }
 }
 
-pub fn boundary<'a, I>(p: Parser<'a, u8, I>) -> Parser<'a, u8, I>
-    where I: 'static
-{
-    whitespace() * p - whitespace()
-}
+named!(line_comment<Input, Input>, recognize!(delimited!(
+    tag!("//"),
+    many0!(is_not!(b"\n")),
+    char!('\n')
+)));
 
-pub fn sym_s<'a>(symbol: u8) -> Parser<'a, u8, u8> {
-    boundary(sym(symbol))
-}
-pub fn seq_s<'a,  T>(train: &'static T) -> Parser<'a, u8, Vec<u8>>
-    where T: Train<u8> + ::std::marker::Sized
-{
-    boundary(seq(train))
-}
-pub fn one_of_s<'a, S>(symbols: &'static S) -> Parser<'a, u8, u8>
-    where S: ::pom::set::Set<u8> + ::std::marker::Sized
-{
-    one_of_skip(symbols, whitespace)
-}
+named!(multi_line_comment<Input, Input>, recognize!(preceded!(
+    tag!("/*"),
+    many_till!(take!(1), tag!("*/"))
+)));
 
-pub fn whitespace() -> Parser<'static, u8, ()> {
-    (one_of(b" \t\n\r").discard()
-        |(seq(b"//")
-            * none_of(b"\n").repeat(..)
-            * (sym(b'\n').discard() | end()
-        )
-    ))
-        .repeat(0..).discard()
-}
+named!(pub whitespace<Input, Input, ParserError>, fix_error!(ParserError, recognize!(alt!(
+    line_comment
+    |multi_line_comment
+    |is_a!(b" \t\r\n\x0c")
+))));
 
-pub fn one_of_skip<'a, I, S>(symbols: &'static S, whitespace: fn() -> Parser<'a, I, ()>)  -> Parser<'a, I, I>
-    where I: Copy + PartialEq + Display + Debug + 'static,
-          S: ::pom::set::Set<I> + ::std::marker::Sized
-{
-    whitespace() * one_of(symbols) - whitespace()
-}
+#[macro_export]
+macro_rules! gws (
+  ($i:expr, $($args:tt)*) => (
+    {
+      use nom::Convert;
+      use nom::Err;
+      use nom::lib::std::result::Result::*;
+      use $crate::parsers::replacements::multispace0;
+      use $crate::inner_errors::ParserError;
 
+      match sep!($i, multispace0, $($args)*) {
+        Err(e) => Err(Err::<_, ParserError>::convert(e)),
+        Ok((i1,o))    => {
+          match (multispace0)(i1) {
+            Err(e) => Err(Err::convert(e)),
+            Ok((i2,_))    => Ok((i2, o))
+          }
+        }
+      }
+    }
+  )
+);
 
-pub fn flatten<T>(mut vec: Vec<Vec<T>>) -> Vec<T> {
-    let mut result = Vec::new();
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parsers::expression;
+    use types::{BinaryExpression, BinaryOperator, Expression};
 
-    vec.drain(..).for_each(|mut v|v.drain(..).for_each(|v_inner|result.push(v_inner)));
+    #[test]
+    fn simple_whitespace() {
+        let input = Input(b" \n \t\r");
+        let expected = Input(b" \n \t\r");
 
-    result
-}
+        let actual = whitespace(input).unwrap().1;
 
-pub fn push_identity<T>(pair: (T, Vec<T>)) -> Vec<T> {
-    let (first, mut vec) = pair;
-    vec.push(first);
-    vec
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn no_whitespace() {
+        let input = Input(b"");
+        let expected: Vec<Input> = Vec::new();
+
+        let actual = ::parsers::replacements::multispace0(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn simple_line_comment() {
+        let input = Input(b"//foo\r\n");
+        let expected = Input(b"//foo\r\n");
+
+        let actual = whitespace(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn empty_line_comment() {
+        let input = Input(b"//\n");
+        let expected = Input(b"//\n");
+
+        let actual = whitespace(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn empty_multi_line_comment() {
+        let input = Input(b"/**/");
+        let expected = Input(b"/**/");
+
+        let actual = whitespace(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn simple_multi_line_comment() {
+        let input = Input(b"/*foo*/");
+        let expected = Input(b"/*foo*/");
+
+        let actual = whitespace(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn embedded_whitespace() {
+        let input = Input(b"4//\n+3");
+        let expected = Expression::Binary(Box::new(BinaryExpression::new(
+            BinaryOperator::Plus,
+            Expression::Int(4),
+            Expression::Int(3),
+        )));
+
+        let actual = expression(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
 }
