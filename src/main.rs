@@ -75,14 +75,3 @@ fn run() -> errors::Result<()> {
 
     Ok(())
 }
-
-named!(test2<&[u8], &[u8]>, do_parse!(
-    things: take!(4) >>
-    (things)
-));
-
-named!(test<&[u8], &[u8]>, do_parse!(
-    stuff: take!(4) >>
-    stuff2: flat_map!(stuff, test2) >>
-    (stuff2)
-));
