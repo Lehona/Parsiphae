@@ -6,12 +6,12 @@ use types::{Expression, Input, Statement};
 
 named!(semi_statement<Input, Statement, ParserError>, do_parse!(
     state: add_return_error!(ErrorKind::Custom(ParserError::IllegalStatement), alt!(
-         map!(return_parser, Statement::ReturnStatement)
-        |map!(var_decl_list, Statement::VarDeclarations)
+         map!(var_decl_list, Statement::VarDeclarations)
         |map!(const_array_decl, Statement::ConstArrayDeclaration)
         |map!(const_decl, Statement::ConstDeclaration)
         |map!(assignment, Statement::Ass)
         |map!(expression, Statement::Exp)
+        |map!(return_parser, Statement::ReturnStatement)
     )) >> multispace0 >>
     return_error!(ErrorKind::Custom(ParserError::MissingSemi), char_e!(';')) >> multispace0 >>
     (state)
@@ -105,6 +105,20 @@ mod tests {
     fn int_return() {
         let input = Input(b"return 3;");
         let expected = Statement::ReturnStatement(Some(Expression::Int(3)));
+
+        let actual = statement(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn return_identifier() {
+        let input = Input(b"returnVar;");
+        let expected = Statement::Exp(Expression::Identifier(Box::new(VarAccess::new(
+            Identifier::new(b"returnVar"),
+            None,
+            None,
+        ))));
 
         let actual = statement(input).unwrap().1;
 

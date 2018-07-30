@@ -5,7 +5,8 @@ fn convert_identifier(input: Input) -> Identifier {
     Identifier::new(&input.0)
 }
 
-const IDENTIFIER_BEGIN: &'static [u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890";
+const IDENTIFIER_BEGIN: &'static [u8] =
+    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890";
 const IDENTIFIER_END: &'static [u8] =
     b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_^@1234567890\xC4\xE4\xD6\xF6\xFC\xDC\xDF";
 
@@ -43,7 +44,7 @@ fn is_valid(input: Input) -> bool {
 
 fn is_keyword(input: Input) -> bool {
     lazy_static! {
-        static ref keywords: &'static [&'static [u8]] = &[b"if", b"var"];
+        static ref keywords: &'static [&'static [u8]] = &[b"if", b"var", b"return"];
     }
     for keyword in keywords.iter() {
         if input.eq_ignore_ascii_case(keyword) {
@@ -70,8 +71,12 @@ mod tests {
             b"",
         );
 
-        test_parser_done(identifier_parser, b"123foo", Identifier::new(b"123foo"), b"");
-
+        test_parser_done(
+            identifier_parser,
+            b"123foo",
+            Identifier::new(b"123foo"),
+            b"",
+        );
 
         test_parser_error(
             identifier_parser,

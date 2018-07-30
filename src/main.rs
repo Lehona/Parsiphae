@@ -36,7 +36,7 @@ fn main() {
     }
 
     let ms = start_time.to(PreciseTime::now()).num_milliseconds() as f64;
-    println!("parsing took {} seconds", ms/1000.0);
+    println!("parsing took {} seconds", ms / 1000.0);
 }
 
 fn run() -> errors::Result<()> {
@@ -75,3 +75,14 @@ fn run() -> errors::Result<()> {
 
     Ok(())
 }
+
+named!(test2<&[u8], &[u8]>, do_parse!(
+    things: take!(4) >>
+    (things)
+));
+
+named!(test<&[u8], &[u8]>, do_parse!(
+    stuff: take!(4) >>
+    stuff2: flat_map!(stuff, test2) >>
+    (stuff2)
+));

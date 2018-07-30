@@ -49,7 +49,9 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
                     };
 
                     match extension.as_ref() {
-                        "D" => {vec.push(path);},
+                        "D" => {
+                            vec.push(path);
+                        }
                         "SRC" => {
                             let inner_vec = parse_src(path)?;
                             vec.extend(inner_vec.into_iter());
@@ -78,14 +80,17 @@ fn parent_dir(path: &Path) -> Result<PathBuf> {
     let parent_path = if path.is_relative() {
         let mut absolute_path = ::std::env::current_dir()?;
         absolute_path.push(path);
-        absolute_path.parent().map(|p|p.to_owned())
+        absolute_path.parent().map(|p| p.to_owned())
     } else {
-        path.parent().map(|p|p.to_owned())
+        path.parent().map(|p| p.to_owned())
     };
 
-    parent_path.ok_or(::std::io::Error::new(
-        ::std::io::ErrorKind::NotFound,
-        "Unable to get parent directory").into())
+    parent_path.ok_or(
+        ::std::io::Error::new(
+            ::std::io::ErrorKind::NotFound,
+            "Unable to get parent directory",
+        ).into(),
+    )
 }
 
 fn fix_line(line: &str) -> Option<&str> {
