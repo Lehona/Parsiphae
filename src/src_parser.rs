@@ -1,6 +1,7 @@
 use errors::*;
 use glob::glob;
 use std::io::Read;
+use std::path;
 use std::path::{Path, PathBuf};
 
 pub fn parse_src<P: AsRef<Path>>(path: P) -> Result<Vec<PathBuf>> {
@@ -27,7 +28,8 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
         .collect::<Vec<String>>();
 
     for line in lines {
-        for entry in glob(&line).unwrap() {
+        let line_normalized = line.replace("\\", &path::MAIN_SEPARATOR.to_string());
+        for entry in glob(&line_normalized).unwrap() {
             match entry {
                 Ok(path) => {
                     let extension = {
@@ -35,7 +37,7 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
                             None => {
                                 println!(
                                     "invalid extension of path {:?}\nline: {}\ndir: {}",
-                                    &path, &line, &dir
+                                    &path, &line_normalized, &dir
                                 );
                                 ::std::ffi::OsStr::new("abc")
                             }
@@ -98,6 +100,5 @@ fn fix_line(line: &str) -> Option<&str> {
     if fixed.is_empty() {
         return None;
     }
-
     Some(fixed)
 }
