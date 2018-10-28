@@ -52,6 +52,7 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
 
                     match extension.as_ref() {
                         "D" => {
+                            println!("{:?}", path);
                             vec.push(path);
                         }
                         "SRC" => {

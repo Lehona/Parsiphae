@@ -1,6 +1,6 @@
 use encoding::{all::ISO_8859_1, DecoderTrap, Encoding};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Hash, Eq)]
 pub struct PrintableByteVec(pub Vec<u8>);
 
 impl PrintableByteVec {

@@ -2,9 +2,9 @@ use types::Identifier;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VarDeclaration {
-    typ: Identifier,
-    name: Identifier,
-    array_size: Option<ArraySizeDeclaration>,
+    pub typ: Identifier,
+    pub name: Identifier,
+    pub array_size: Option<ArraySizeDeclaration>,
 }
 
 impl VarDeclaration {

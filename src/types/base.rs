@@ -35,6 +35,10 @@ impl Identifier {
             name: PrintableByteVec(name.to_vec()),
         }
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.name.0
+    }
 }
 
 impl ::std::fmt::Display for Identifier {

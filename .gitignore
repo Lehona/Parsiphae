@@ -1,2 +1,4 @@
 /target
 **/*.rs.bk
+input.txt
+output.txt

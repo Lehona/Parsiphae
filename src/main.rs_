@@ -1,26 +1,15 @@
 #![allow(dead_code)]
-#![feature(slice_patterns)]
 
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate nom;
 extern crate clap;
-extern crate encoding;
-extern crate glob;
 extern crate time;
 
-mod error_handler;
-mod errors;
-mod inner_errors;
-mod parsers;
+extern crate parsiphae;
 mod processor;
-mod src_parser;
-mod tests;
-mod types;
 
 use clap::{App, Arg};
 use time::PreciseTime;
+
+use parsiphae::{errors, types};
 
 fn main() {
     let start_time = PreciseTime::now();
