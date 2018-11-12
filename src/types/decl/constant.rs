@@ -2,8 +2,8 @@ use types::{ArraySizeDeclaration, Expression, Identifier};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstDeclaration {
-    name: Identifier,
-    typ: Identifier,
+    pub name: Identifier,
+    pub typ: Identifier,
     initializer: Expression,
 }
 
@@ -19,9 +19,9 @@ impl ConstDeclaration {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstArrayDeclaration {
-    name: Identifier,
-    typ: Identifier,
-    array_size: ArraySizeDeclaration,
+    pub name: Identifier,
+    pub typ: Identifier,
+    pub array_size: ArraySizeDeclaration,
     initializer: ConstArrayInitializer,
 }
 

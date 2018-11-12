@@ -2,8 +2,8 @@ use types::{Expression, UnaryOperator};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryExpression {
-    op: UnaryOperator,
-    right: Expression,
+    pub op: UnaryOperator,
+    pub right: Expression,
 }
 
 impl UnaryExpression {

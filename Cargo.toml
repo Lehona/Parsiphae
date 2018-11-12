@@ -17,6 +17,7 @@ encoding = "0.2.33"
 glob = "0.2.11"
 lazy_static = "1.0.1"
 time = "0.1"
+derive_more = "0.13.0"
 
 [dependencies.nom]
 version = "4.0.0"

@@ -1,4 +1,5 @@
 use inner_errors::ParserError;
+use nom::ErrorKind;
 use parsers::{class, const_array_decl, const_decl, func, instance, prototype, var_decl_list};
 use types::{Declaration, Input};
 

@@ -3,9 +3,9 @@ use types::Identifier;
 
 #[derive(Clone, PartialEq)]
 pub struct VarAccess {
-    name: Identifier,
-    instance: Option<Identifier>,
-    index: Option<Expression>,
+    pub name: Identifier,
+    pub instance: Option<Identifier>,
+    pub index: Option<Expression>,
 }
 
 impl VarAccess {

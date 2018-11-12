@@ -3,6 +3,7 @@ mod decl;
 mod exp;
 mod printable;
 mod statement;
+mod symbol;
 
 pub use self::printable::{PrintableByteSlice, PrintableByteVec};
 
@@ -17,6 +18,9 @@ pub use self::decl::{
 };
 
 pub use self::statement::{Assignment, AssignmentOperator, IfBranch, IfStatement, Statement};
+
+pub use self::symbol::parsed;
+pub use self::symbol::SymbolCollection;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AST {

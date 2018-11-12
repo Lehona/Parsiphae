@@ -1,6 +1,7 @@
 use inner_errors::ParserError;
 use nom::types::CompleteByteSlice;
 use nom::IResult;
+use std::fmt::Debug;
 use types::PrintableByteVec;
 
 pub type Input<'a> = CompleteByteSlice<'a>;
@@ -11,7 +12,7 @@ pub fn Input<'a>(input: &'a [u8]) -> Input<'a> {
 
 pub type PResult<'a, O> = IResult<Input<'a>, O, ParserError>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct StringLiteral {
     data: PrintableByteVec,
 }
@@ -24,7 +25,12 @@ impl StringLiteral {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl ::std::fmt::Debug for StringLiteral {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        self.data.fmt(f)
+    }
+}
+#[derive(Clone, PartialEq, Eq)]
 pub struct Identifier {
     name: PrintableByteVec,
 }
@@ -43,6 +49,12 @@ impl Identifier {
 
 impl ::std::fmt::Display for Identifier {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
-        write!(f, "{}", ::std::str::from_utf8(&self.name).unwrap())
+        self.name.fmt(f)
+    }
+}
+
+impl ::std::fmt::Debug for Identifier {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        self.name.fmt(f)
     }
 }

@@ -2,7 +2,7 @@ use types;
 use types::*;
 
 #[allow(unused_variables)]
-pub trait VisitorMut {
+pub trait VisitorMut<T = ()> {
     fn visit_expression(&mut self, _exp: &Expression, scope: Option<&types::Identifier>) {}
     fn visit_statement(&mut self, _statement: &Statement, scope: &types::Identifier) {}
     fn visit_var_decl(&mut self, decl: &VarDeclaration, scope: Option<&types::Identifier>) {}

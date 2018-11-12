@@ -1,4 +1,5 @@
 use inner_errors::ParserError;
+use nom::ErrorKind;
 use parsers::util::flatten_vec;
 use parsers::{identifier_parser, replacements::*, var_decl_list};
 use types::{Class, Input};

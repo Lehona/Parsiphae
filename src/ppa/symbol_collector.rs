@@ -1,26 +1,57 @@
 use ppa::visitor::*;
-use std::collections::HashMap;
 use types;
-use types::PrintableByteVec;
+use types::parsed;
 
-#[derive(Debug)]
-pub struct ClassCollector {
-    class_defs: HashMap<PrintableByteVec, /*&'a*/ types::Class>,
+#[derive(Debug, Default)]
+pub struct SymbolCollector {
+    pub syms: Vec<parsed::Symbol>,
 }
 
-impl ClassCollector {
+impl SymbolCollector {
     pub fn new() -> Self {
-        ClassCollector {
-            class_defs: HashMap::new(),
+        SymbolCollector {
+            ..Default::default()
         }
     }
 }
 
-impl VisitorMut for ClassCollector {
+impl VisitorMut for SymbolCollector {
+    fn visit_var_decl(&mut self, decl: &types::VarDeclaration, scope: Option<&types::Identifier>) {
+        self.syms
+            .push(parsed::Symbol::Var(decl.clone(), scope.cloned()));
+    }
+
+    fn visit_func_decl(&mut self, decl: &types::Function) {
+        self.syms.push(parsed::Symbol::Func(decl.clone()));
+    }
+
     fn visit_class_decl(&mut self, decl: &types::Class) {
-        self.class_defs.insert(
-            PrintableByteVec(decl.name.as_bytes().to_vec()),
-            decl.clone(),
-        );
+        self.syms.push(parsed::Symbol::Class(decl.clone()));
+    }
+
+    fn visit_inst_decl(&mut self, decl: &types::Instance) {
+        self.syms.push(parsed::Symbol::Inst(decl.clone()));
+    }
+
+    fn visit_proto_decl(&mut self, decl: &types::Prototype) {
+        self.syms.push(parsed::Symbol::Proto(decl.clone()));
+    }
+
+    fn visit_const_decl(
+        &mut self,
+        decl: &types::ConstDeclaration,
+        scope: Option<&types::Identifier>,
+    ) {
+        self.syms
+            .push(parsed::Symbol::Const(decl.clone(), scope.cloned()));
+    }
+
+    fn visit_const_arr_decl(
+        &mut self,
+        decl: &types::ConstArrayDeclaration,
+        scope: Option<&types::Identifier>,
+    ) {
+        self.syms
+            .push(parsed::Symbol::ConstArray(decl.clone(), scope.cloned()));
     }
 }

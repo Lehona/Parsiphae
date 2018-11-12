@@ -3,8 +3,8 @@ use types::{BinaryOperator, Expression};
 #[derive(Clone, Debug, PartialEq)]
 pub struct BinaryExpression {
     pub op: BinaryOperator,
-    left: Expression,
-    right: Expression,
+    pub left: Expression,
+    pub right: Expression,
 }
 
 impl BinaryExpression {

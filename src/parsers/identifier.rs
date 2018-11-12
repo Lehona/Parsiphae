@@ -6,16 +6,9 @@ fn convert_identifier(input: Input) -> Identifier {
 }
 
 const IDENTIFIER_BEGIN: &'static [u8] =
-    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890";
+    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890\xC4\xE4\xD6\xF6\xFC\xDC\xDF";
 const IDENTIFIER_END: &'static [u8] =
     b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_^@1234567890\xC4\xE4\xD6\xF6\xFC\xDC\xDF";
-
-named!(pub identifier_list<Input, Vec<Identifier>, ParserError>,
-    separated_nonempty_list!(
-        gws!(char_e!(',')),
-        identifier_parser
-    )
-);
 
 named!(pub identifier_parser<Input, Identifier, ParserError>, fix_error!(ParserError, map!(
     verify!(
@@ -29,6 +22,13 @@ named!(pub identifier_parser<Input, Identifier, ParserError>, fix_error!(ParserE
     ),
     convert_identifier
 )));
+
+named!(pub identifier_list<Input, Vec<Identifier>, ParserError>,
+    separated_nonempty_list!(
+        gws!(char_e!(',')),
+        identifier_parser
+    )
+);
 
 fn is_valid(input: Input) -> bool {
     if is_keyword(input) {
@@ -84,4 +84,5 @@ mod tests {
             failure_result(b"123", ErrorKind::Verify),
         );
     }
+
 }

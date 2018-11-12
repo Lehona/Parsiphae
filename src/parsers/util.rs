@@ -20,8 +20,8 @@ macro_rules! one_of_tag {
 
 named!(line_comment<Input, Input>, recognize!(delimited!(
     tag!("//"),
-    many0!(is_not!(b"\n")),
-    char!('\n')
+    opt!(is_not!(b"\n")),
+    alt!(tag!("\n")|eof!())
 )));
 
 named!(multi_line_comment<Input, Input>, recognize!(preceded!(
@@ -88,6 +88,26 @@ mod tests {
     fn simple_line_comment() {
         let input = Input(b"//foo\r\n");
         let expected = Input(b"//foo\r\n");
+
+        let actual = whitespace(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn trailing_line_comment() {
+        let input = Input(b"//foo");
+        let expected = Input(b"//foo");
+
+        let actual = whitespace(input).unwrap().1;
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn trailing_empty_line_comment() {
+        let input = Input(b"//");
+        let expected = Input(b"//");
 
         let actual = whitespace(input).unwrap().1;
 

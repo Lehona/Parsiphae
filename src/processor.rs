@@ -1,30 +1,8 @@
-use parsiphae::ppa::symbol_collector::ClassCollector;
-use parsiphae::types::Expression;
+use parsiphae::ppa::symbol_collector::SymbolCollector;
+use parsiphae::types::SymbolCollection;
 use parsiphae::{error_handler, errors::*, inner_errors::ParserError, ppa, src_parser, types};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-
-struct TestVisitor;
-impl ppa::visitor::Visitor for TestVisitor {
-    fn visit_expression(&mut self, exp: &Expression, scope: Option<&types::Identifier>) {
-        let res = exp.evaluate_int();
-
-        if let Ok(val) = res {
-            println!(
-                "I found an expression that evaluated to {}: {:#?}",
-                val, exp
-            )
-        }
-    }
-
-    fn visit_var_decl(&mut self, decl: &types::VarDeclaration, scope: Option<&types::Identifier>) {
-        println!(
-            "A variable was declared: {} in scope {}",
-            &decl.name,
-            scope.unwrap_or(&types::Identifier::new(b""))
-        );
-    }
-}
 
 #[derive(Debug)]
 pub struct ParsingResult {
@@ -78,7 +56,20 @@ fn process_file<P: AsRef<Path>>(path: P) -> Result<ParsingResult> {
 pub fn process_single_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let res = process_file(path)?;
 
-    res.print();
+    let mut visitor = SymbolCollector::new();
+    {
+        if let Ok(ast) = res.result {
+            ::parsiphae::ppa::visitor::visit_ast(&ast, &mut visitor);
+        }
+
+        println!("{:#?}", &visitor);
+
+        let symbols = SymbolCollection::new(visitor.syms);
+        let mut typechk = ppa::typecheck::TypeChecker::new(&symbols);
+        typechk.typecheck();
+    }
+
+    //res.print();
 
     Ok(())
 }
@@ -88,12 +79,10 @@ pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
 
     let results: Vec<ParsingResult> = d_paths.iter().map(process_file).collect::<Result<_>>()?;
 
-    let mut visitor = ClassCollector::new();
+    let mut visitor = SymbolCollector::new();
 
     {
-        let okay_results = results
-            .iter()
-            .filter_map(|res| res.result.as_ref().ok());
+        let okay_results = results.iter().filter_map(|res| res.result.as_ref().ok());
 
         for ast in okay_results {
             ::parsiphae::ppa::visitor::visit_ast(&ast, &mut visitor);

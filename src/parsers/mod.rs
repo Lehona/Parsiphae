@@ -22,6 +22,7 @@ pub use self::util::whitespace;
 
 use self::replacements::multispace0;
 use inner_errors::ParserError;
+use nom::ErrorKind;
 use types::{Input, AST};
 named!(pub start<Input, AST, ParserError>, do_parse!(
     multispace0 >>

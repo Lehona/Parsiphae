@@ -7,6 +7,8 @@ extern crate lazy_static;
 extern crate nom;
 extern crate encoding;
 extern crate glob;
+#[macro_use]
+extern crate derive_more;
 
 pub mod error_handler;
 pub mod errors;
