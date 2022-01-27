@@ -46,7 +46,7 @@ impl ParsingResult {
             Err(ref e) => match e {
                 Error::ParsingError { err, line } => {
                     let msg = err.description();
-                    println!("Error in file {:?} in line {}: {}", self.file, line, msg);
+                    eprintln!("Error in file {:?} in line {}: {}", self.file, line, msg);
                 }
                 _ => unreachable!(),
             },
