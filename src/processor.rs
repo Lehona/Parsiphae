@@ -75,12 +75,12 @@ fn process_file<P: AsRef<Path>>(path: P) -> Result<ParsingResult> {
     Ok(ParsingResult::new(path, result))
 }
 
-pub fn process_single_file<P: AsRef<Path>>(path: P) -> Result<()> {
+pub fn process_single_file<P: AsRef<Path>>(path: P) -> Result<types::AST> {
     let res = process_file(path)?;
 
     res.print();
 
-    Ok(())
+    return res.result;
 }
 
 pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
@@ -105,10 +105,15 @@ pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
     println!("Parsed {} files", results.len());
     if results.iter().all(ParsingResult::is_ok) {
         println!("No syntax errors detected!");
+        return Ok(());
     } else {
+        let mut err = Ok(());
         for result in results {
             result.print();
+            if let Err(e) = result.result {
+                err = Err(e);
+            }
         }
+        return err;
     }
-    Ok(())
 }
