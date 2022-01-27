@@ -1,4 +1,5 @@
 use inner_errors::ParserError;
+use nom::ErrorKind;
 use parsers::{expression, identifier_parser, replacements::*};
 use types::{Call, Expression, Input};
 

@@ -17,7 +17,7 @@ pub fn map_err(input: &[u8], err: ::nom::Err<Input, ParserError>) -> errors::Err
             }
             let relevant_errors = custom_parser_errors(&errors);
             match &relevant_errors[..] {
-                [_.., (leftover, err)] => map_single_error(input, leftover, **err),
+                [.., (leftover, err)] => map_single_error(input, leftover, **err),
                 _ => errors::Error::ParsingError {
                     err: ParserError::FromNom,
                     line: 0,
