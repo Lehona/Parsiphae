@@ -99,7 +99,7 @@ pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
             ::parsiphae::ppa::visitor::visit_ast(&ast, &mut visitor);
         }
 
-        println!("{:#?}", visitor);
+        // println!("{:#?}", visitor);
     }
 
     println!("Parsed {} files", results.len());
