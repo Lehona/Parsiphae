@@ -1,4 +1,5 @@
 use inner_errors::ParserError;
+use nom::ErrorKind;
 use parsers::replacements::*;
 use parsers::{identifier_parser, number_parser};
 use types::{ArraySizeDeclaration, Identifier, Input, VarDeclaration};

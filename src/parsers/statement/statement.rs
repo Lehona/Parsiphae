@@ -1,4 +1,5 @@
 use inner_errors::ParserError;
+use nom::ErrorKind;
 use parsers::{
     assignment, const_array_decl, const_decl, expression, if_clause, replacements::*, var_decl_list,
 };
