@@ -1,7 +1,9 @@
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
+use crate::parsers::{
+    class, const_array_decl, const_decl, func, instance, prototype, var_decl_list,
+};
+use crate::types::{Declaration, Input};
 use nom::ErrorKind;
-use parsers::{class, const_array_decl, const_decl, func, instance, prototype, var_decl_list};
-use types::{Declaration, Input};
 
 named!(pub  declaration<Input, Declaration, ParserError>, terminated!(
     add_return_error!(ErrorKind::Custom(ParserError::Declaration), alt!(

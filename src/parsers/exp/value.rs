@@ -1,7 +1,7 @@
-use inner_errors::ParserError;
-use parsers::exp::expression::parenthesis;
-use parsers::{call_parser, float_parser, number_parser, var_access};
-use types::{Expression, Input};
+use crate::inner_errors::ParserError;
+use crate::parsers::exp::expression::parenthesis;
+use crate::parsers::{call_parser, float_parser, number_parser, var_access};
+use crate::types::{Expression, Input};
 
 named!(pub Value<Input, Expression, ParserError>, fix_error!(ParserError, alt!(
         map!(call_parser, |call| Expression::Call(Box::new(call)))
@@ -14,10 +14,10 @@ named!(pub Value<Input, Expression, ParserError>, fix_error!(ParserError, alt!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tests::utility::*;
-    use types::Call;
-    use types::Identifier;
-    use types::VarAccess;
+    use crate::tests::utility::*;
+    use crate::types::Call;
+    use crate::types::Identifier;
+    use crate::types::VarAccess;
 
     #[test]
     fn test_value_parser() {
@@ -45,5 +45,4 @@ mod tests {
 
         test_parser_done(Value, b"a", expected, b"");
     }
-
 }

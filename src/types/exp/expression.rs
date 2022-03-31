@@ -1,5 +1,5 @@
-use types::base::StringLiteral;
-use types::{BinaryExpression, Call, UnaryExpression, VarAccess};
+use crate::types::base::StringLiteral;
+use crate::types::{BinaryExpression, Call, UnaryExpression, VarAccess};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
@@ -29,18 +29,18 @@ impl Expression {
         }
     }
     /*
-    pub fn is_constant_int(&self) -> bool {
-        match *self {
-            Expression::Value(_) => true,
-            Expression::Float(_) => false,
-            Expression::Identifier(_) => true,
-            Expression::Binary(_) => true,
-            Expression::Unary(_) => true,
-            Expression::Call(_) => false,
-            Expression::String(_) => false
+        pub fn is_constant_int(&self) -> bool {
+            match *self {
+                Expression::Value(_) => true,
+                Expression::Float(_) => false,
+                Expression::Identifier(_) => true,
+                Expression::Binary(_) => true,
+                Expression::Unary(_) => true,
+                Expression::Call(_) => false,
+                Expression::String(_) => false
+            }
         }
-    }
-*/
+    */
 
     pub fn is_constant(&self) -> bool {
         match *self {

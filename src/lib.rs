@@ -11,7 +11,9 @@ extern crate derive_more;
 
 pub mod error_handler;
 pub mod errors;
+pub mod handwritten_parsers;
 pub mod inner_errors;
+pub mod lexer;
 pub mod parsers;
 pub mod ppa;
 pub mod src_parser;

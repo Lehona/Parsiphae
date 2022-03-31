@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::{identifier_list, identifier_parser, statement_block};
-use types::{Input, Instance};
+use crate::inner_errors::ParserError;
+use crate::parsers::{identifier_list, identifier_parser, statement_block};
+use crate::types::{Input, Instance};
 
 //
 named!(instance_init<Input, Instance, ParserError>, fix_error!(ParserError, gws!(do_parse!(
@@ -32,7 +32,9 @@ named!(pub instance<Input, Vec<Instance>, ParserError>,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Assignment, AssignmentOperator, Expression, Identifier, Statement, VarAccess};
+    use crate::types::{
+        Assignment, AssignmentOperator, Expression, Identifier, Statement, VarAccess,
+    };
 
     #[test]
     fn simple() {

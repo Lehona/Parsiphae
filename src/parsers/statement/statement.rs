@@ -1,9 +1,9 @@
-use inner_errors::ParserError;
-use nom::ErrorKind;
-use parsers::{
+use crate::inner_errors::ParserError;
+use crate::parsers::{
     assignment, const_array_decl, const_decl, expression, if_clause, replacements::*, var_decl_list,
 };
-use types::{Expression, Input, Statement};
+use crate::types::{Expression, Input, Statement};
+use nom::ErrorKind;
 
 named!(semi_statement<Input, Statement, ParserError>, do_parse!(
     state: add_return_error!(ErrorKind::Custom(ParserError::IllegalStatement), alt!(
@@ -44,7 +44,7 @@ named!(return_parser<Input, Option<Expression>, ParserError>, fix_error!(ParserE
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{
+    use crate::types::{
         Assignment, AssignmentOperator, Expression, Identifier, IfBranch, IfStatement,
         UnaryExpression, VarAccess,
     };
@@ -125,5 +125,4 @@ mod tests {
 
         assert_eq!(expected, actual);
     }
-
 }

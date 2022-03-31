@@ -1,6 +1,6 @@
-use parsers::Unary;
-use types::{BinaryExpression, BinaryOperator, Expression, Input};
-use types::PResult;
+use crate::parsers::Unary;
+use crate::types::{BinaryExpression, BinaryOperator, Expression, Input};
+use crate::types::PResult;
 
 named!(pub Bit<Input, Expression>, gws!(alt!(
     do_parse!(

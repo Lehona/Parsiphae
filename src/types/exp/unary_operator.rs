@@ -1,3 +1,5 @@
+use crate::lexer::TokenKind;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum UnaryOperator {
     Plus,
@@ -22,11 +24,29 @@ impl UnaryOperator {
             UnaryOperator::Plus => val,
             UnaryOperator::Minus => -val,
             UnaryOperator::Flip => !val,
-            UnaryOperator::Negate => if val == 0 {
-                1
-            } else {
-                0
-            },
+            UnaryOperator::Negate => {
+                if val == 0 {
+                    1
+                } else {
+                    0
+                }
+            }
+        }
+    }
+}
+
+impl std::convert::TryFrom<TokenKind> for UnaryOperator {
+    type Error = anyhow::Error;
+    fn try_from(item: TokenKind) -> Result<Self, Self::Error> {
+        match item {
+            TokenKind::Plus => Ok(UnaryOperator::Plus),
+            TokenKind::Minus => Ok(UnaryOperator::Minus),
+            TokenKind::BitNot => Ok(UnaryOperator::Flip),
+            TokenKind::Not => Ok(UnaryOperator::Negate),
+            _ => anyhow::bail!(
+                "Trying to convert illegal token to UnaryOperator: {:?}",
+                item
+            ),
         }
     }
 }

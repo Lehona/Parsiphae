@@ -1,7 +1,7 @@
-use inner_errors::ParserError;
-use parsers::replacements::*;
-use parsers::{array_size_decl, expression, identifier_parser};
-use types::{ConstArrayDeclaration, ConstArrayInitializer, ConstDeclaration, Input};
+use crate::inner_errors::ParserError;
+use crate::parsers::replacements::*;
+use crate::parsers::{array_size_decl, expression, identifier_parser};
+use crate::types::{ConstArrayDeclaration, ConstArrayInitializer, ConstDeclaration, Input};
 
 named!(pub const_decl<Input, ConstDeclaration, ParserError>, fix_error!(ParserError, do_parse!(
     tag_no_case_e!("const") >>
@@ -42,8 +42,8 @@ named!(pub const_array_init<Input, ConstArrayInitializer, ParserError>, fix_erro
 #[cfg(test)]
 mod const_tests {
     use super::*;
-    use tests::utility::*;
-    use types::{Expression, Identifier, UnaryExpression};
+    use crate::tests::utility::*;
+    use crate::types::{Expression, Identifier, UnaryExpression};
 
     #[test]
     pub fn decl_int_foo() {
@@ -70,8 +70,8 @@ mod const_tests {
 #[cfg(test)]
 mod const_array_tests {
     use super::*;
-    use tests::utility::*;
-    use types::*;
+    use crate::tests::utility::*;
+    use crate::types::*;
 
     #[test]
     pub fn decl_int_index() {

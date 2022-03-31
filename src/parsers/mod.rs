@@ -21,9 +21,9 @@ pub use self::statement::{assignment, if_clause, statement, statement_block};
 pub use self::util::whitespace;
 
 use self::replacements::multispace0;
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
+use crate::types::{Input, AST};
 use nom::ErrorKind;
-use types::{Input, AST};
 named!(pub start<Input, AST, ParserError>, do_parse!(
     multispace0 >>
     decls: many0!(terminated!(declaration, multispace0)) >>

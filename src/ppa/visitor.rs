@@ -1,10 +1,10 @@
-use types;
-use types::*;
+use crate::types;
+use crate::types::*;
 
 #[allow(unused_variables)]
-pub trait VisitorMut<T = ()> {
-    fn visit_expression(&mut self, _exp: &Expression, scope: Option<&types::Identifier>) {}
-    fn visit_statement(&mut self, _statement: &Statement, scope: &types::Identifier) {}
+pub trait VisitorMut {
+    fn visit_expression(&mut self, exp: &Expression, scope: Option<&types::Identifier>) {}
+    fn visit_statement(&mut self, statement: &Statement, scope: &types::Identifier) {}
     fn visit_var_decl(&mut self, decl: &VarDeclaration, scope: Option<&types::Identifier>) {}
     fn visit_func_decl(&mut self, decl: &Function) {}
     fn visit_class_decl(&mut self, decl: &Class) {}
@@ -79,6 +79,7 @@ where
     }
 }
 */
+
 struct VisitorEngine<'a, V: VisitorMut + 'a> {
     visitor: &'a mut V,
 }
@@ -175,7 +176,7 @@ impl<'a, V: VisitorMut + 'a> VisitorMut for VisitorEngine<'a, V> {
 pub fn visit_ast<V: VisitorMut>(ast: &types::AST, visitor: &mut V) {
     let mut engine = VisitorEngine { visitor };
     for decl in &ast.declarations {
-        use types::Declaration::*;
+        use crate::types::Declaration::*;
         match decl {
             Var(ref vec) => {
                 for var in vec {

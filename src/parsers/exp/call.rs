@@ -1,7 +1,7 @@
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
+use crate::parsers::{expression, identifier_parser, replacements::*};
+use crate::types::{Call, Expression, Input};
 use nom::ErrorKind;
-use parsers::{expression, identifier_parser, replacements::*};
-use types::{Call, Expression, Input};
 
 named!(pub call_parser<Input, Call, ParserError>, do_parse!(
     name: identifier_parser >> multispace0 >>
@@ -23,7 +23,7 @@ named!(call_parser_real<Input, Vec<Expression>, ParserError>, fix_error!(ParserE
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Expression, Identifier, StringLiteral};
+    use crate::types::{Expression, Identifier, StringLiteral};
 
     #[test]
     fn no_param() {

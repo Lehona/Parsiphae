@@ -1,7 +1,7 @@
-use inner_errors::ParserError;
-use parsers::Unary;
-use types::PResult;
-use types::{BinaryExpression, BinaryOperator, Expression, Input};
+use crate::inner_errors::ParserError;
+use crate::parsers::Unary;
+use crate::types::PResult;
+use crate::types::{BinaryExpression, BinaryOperator, Expression, Input};
 
 pub fn Boolean(input: Input) -> PResult<Expression> {
     left_associative_binary(one_of_tag!("||", "&&"), Cmp)(input)
@@ -44,7 +44,8 @@ pub fn left_associative_binary<'a>(
                                     exp,
                                 )))
                             }
-                        ) >> (folded)
+                        )
+                    >> (folded)
             )
         )
     };
@@ -55,8 +56,8 @@ pub fn left_associative_binary<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tests::utility::*;
-    use types::UnaryExpression;
+    use crate::tests::utility::*;
+    use crate::types::UnaryExpression;
 
     #[test]
     fn two_ops() {

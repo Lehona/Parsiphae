@@ -1,4 +1,4 @@
-use types::{Identifier, Statement, VarDeclaration};
+use crate::types::{Identifier, Statement, VarDeclaration};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Instance {

@@ -1,5 +1,5 @@
-use inner_errors::ParserError;
-use types::Input;
+use crate::inner_errors::ParserError;
+use crate::types::Input;
 
 pub fn flatten_vec<T>(vec: Vec<Vec<T>>) -> Vec<T> {
     vec.into_iter()
@@ -61,8 +61,8 @@ macro_rules! gws (
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parsers::expression;
-    use types::{BinaryExpression, BinaryOperator, Expression};
+    use crate::parsers::expression;
+    use crate::types::{BinaryExpression, BinaryOperator, Expression};
 
     #[test]
     fn simple_whitespace() {
@@ -79,7 +79,7 @@ mod tests {
         let input = Input(b"");
         let expected: Vec<Input> = Vec::new();
 
-        let actual = ::parsers::replacements::multispace0(input).unwrap().1;
+        let actual = crate::parsers::replacements::multispace0(input).unwrap().1;
 
         assert_eq!(expected, actual);
     }
@@ -157,5 +157,4 @@ mod tests {
 
         assert_eq!(expected, actual);
     }
-
 }

@@ -1,5 +1,5 @@
-use inner_errors::ParserError;
-use types::*;
+use crate::inner_errors::ParserError;
+use crate::types::*;
 
 fn is_not_quote(input: u8) -> bool {
     input != b'\"'
@@ -42,8 +42,8 @@ named!(pub float_parser<Input, f32, ParserError>, fix_error!(ParserError, flat_m
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::utility::*;
     use nom::ErrorKind;
-    use tests::utility::*;
 
     #[test]
     pub fn test_string_parser() {
@@ -86,5 +86,4 @@ mod tests {
 
         test_parser_error(float_parser, b"xxx", failure_result(b"xxx", ErrorKind::IsA));
     }
-
 }

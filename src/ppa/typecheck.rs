@@ -1,6 +1,6 @@
-use ppa::visitor::VisitorMut;
-use types;
-use types::parsed;
+use crate::ppa::visitor::VisitorMut;
+use crate::types;
+use crate::types::parsed;
 
 type TCResult<T> = Result<T, ()>;
 
@@ -14,7 +14,7 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub fn typecheck(&mut self) {
-        use types::parsed::Symbol::*;
+        use crate::types::parsed::Symbol::*;
         for symbol in self.parsed_syms.iter() {
             match symbol {
                 Func(ref func) => {
@@ -27,11 +27,11 @@ impl<'a> TypeChecker<'a> {
 
     fn is_type(&self, typ: &types::Identifier) -> bool {
         lazy_static! {
-            static ref primitives: &'static [&'static [u8]] =
+            static ref PRIMITIVES: &'static [&'static [u8]] =
                 &[b"int", b"void", b"string", b"float"];
         }
         let ident = typ.as_bytes();
-        for primitive in primitives.iter() {
+        for primitive in PRIMITIVES.iter() {
             if ident.eq_ignore_ascii_case(primitive) {
                 return true;
             }
@@ -71,7 +71,7 @@ impl<'a> TypeChecker<'a> {
         exp: &types::Expression,
         scope: Option<&types::Identifier>,
     ) -> TCResult<parsed::zPAR_TYPE> {
-        use types::Expression::*;
+        use crate::types::Expression::*;
         match exp {
             Int(_) => return Ok(parsed::zPAR_TYPE::Int),
             Float(_) => return Ok(parsed::zPAR_TYPE::Float),
@@ -165,7 +165,8 @@ impl<'a> VisitorMut for TypeChecker<'a> {
         }
 
         for statement in decl.body.iter() {
-            self.typecheck_statement(statement, &decl.name);
+            // TODO Check result!!
+            let _ = self.typecheck_statement(statement, &decl.name);
         }
     }
     /*fn visit_var_decl(&mut self, decl: &types::VarDeclaration, scope: Option<&types::Identifier>) {}
@@ -179,4 +180,52 @@ impl<'a> VisitorMut for TypeChecker<'a> {
         scope: Option<&types::Identifier>,
     ) {
     }*/
+}
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exp_single_simple() {
+        let exps = [
+            (types::Expression::Int(0), parsed::zPAR_TYPE::Int),
+            (types::Expression::Float(0.0), parsed::zPAR_TYPE::Float),
+            (
+                types::Expression::String(types::StringLiteral::new(b"foo")),
+                parsed::zPAR_TYPE::String,
+            ),
+        ];
+
+        let sc = types::SymbolCollection::new(vec![]);
+        let tc = TypeChecker::new(&sc);
+        for (exp, typ) in exps.iter() {
+            let actual = tc.typecheck_exp(&exp, None).unwrap();
+            assert_eq!(&actual, typ);
+        }
+    }
+
+    #[test]
+    fn exp_var() {
+        let sc = types::SymbolCollection::new(vec![parsed::Symbol::Var(
+            types::VarDeclaration::new(
+                types::Identifier::new(b"bar"),
+                types::Identifier::new(b"foo"),
+                None,
+            ),
+            None,
+        )]);
+        let tc = TypeChecker::new(&sc);
+
+        let exp = types::Expression::Identifier(Box::new(types::VarAccess::new(
+            types::Identifier::new(b"foo"),
+            None,
+            None,
+        )));
+        let expected = parsed::zPAR_TYPE::Instance(types::Identifier::new(b"bar"));
+        let actual = tc.typecheck_exp(&exp, None).unwrap();
+
+        assert_eq!(expected, actual);
+    }
 }

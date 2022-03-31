@@ -1,6 +1,6 @@
 use parsiphae::ppa::symbol_collector::SymbolCollector;
 use parsiphae::types::SymbolCollection;
-use parsiphae::{error_handler, errors::*, inner_errors::ParserError, ppa, src_parser, types};
+use parsiphae::{error_handler, errors::*, ppa, src_parser, types};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -32,10 +32,7 @@ impl ParsingResult {
     }
 
     pub fn is_ok(&self) -> bool {
-        return match self.result {
-            Ok(_) => true,
-            Err(_) => false,
-        };
+        self.result.is_ok()
     }
 }
 
@@ -58,11 +55,11 @@ pub fn process_single_file<P: AsRef<Path>>(path: P) -> Result<types::AST> {
 
     let mut visitor = SymbolCollector::new();
     {
-        if let Ok(ast) = res.result {
+        if let Ok(ref ast) = res.result {
             ::parsiphae::ppa::visitor::visit_ast(&ast, &mut visitor);
         }
 
-        println!("{:#?}", &visitor);
+        // println!("{:#?}", &visitor);
 
         let symbols = SymbolCollection::new(visitor.syms);
         let mut typechk = ppa::typecheck::TypeChecker::new(&symbols);

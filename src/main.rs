@@ -7,9 +7,10 @@ extern crate parsiphae;
 mod processor;
 
 use clap::{App, Arg};
+use std::io::Read;
 use time::PreciseTime;
 
-use parsiphae::{errors, types};
+use parsiphae::errors;
 
 fn main() {
     let start_time = PreciseTime::now();
@@ -59,12 +60,42 @@ fn run() -> errors::Result<()> {
                 .value_name("FILE")
                 .required_unless("SRC"),
         )
+        .arg(
+            Arg::with_name("HAND")
+                .help("Uses the new hand-written parser")
+                .long("hand"),
+        )
         .get_matches();
 
     let d_path = arguments.value_of("INPUT");
     match d_path {
         Some(path) => {
-            processor::process_single_file(path)?;
+            if arguments.is_present("HAND") {
+                let mut file = ::std::fs::File::open(&path).unwrap();
+
+                let mut content = Vec::new();
+                file.read_to_end(&mut content)?;
+
+                let tokens = crate::parsiphae::lexer::lex(&content);
+
+                match tokens {
+                    Err(e) => println!("Error: {:?}", e),
+                    Ok(tokenlist) => {
+                        let mut parser =
+                            parsiphae::handwritten_parsers::parser::Parser::new(tokenlist);
+
+                        let decls = parser.start();
+
+                        if let Err(e) = decls {
+                            println!("{:?}", e);
+                        } else {
+                            println!("Parse successful");
+                        }
+                    }
+                }
+            } else {
+                processor::process_single_file(path)?;
+            }
         }
         None => {
             let path = arguments.value_of("SRC").unwrap();

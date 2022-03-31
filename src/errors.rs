@@ -1,4 +1,4 @@
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
 
 pub type Result<O> = ::std::result::Result<O, Error>;
 

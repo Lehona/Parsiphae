@@ -1,5 +1,5 @@
-use types::Expression;
-use types::Identifier;
+use crate::types::Expression;
+use crate::types::Identifier;
 
 #[derive(Clone, PartialEq)]
 pub struct VarAccess {

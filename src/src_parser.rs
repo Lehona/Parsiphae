@@ -1,4 +1,4 @@
-use errors::*;
+use crate::errors::*;
 use glob::glob;
 use std::io::Read;
 use std::path;
@@ -63,7 +63,8 @@ fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf
                             return Err(::std::io::Error::new(
                                 ::std::io::ErrorKind::InvalidData,
                                 "Invalid extension",
-                            ).into());
+                            )
+                            .into());
                         }
                     }
                 }
@@ -91,7 +92,8 @@ fn parent_dir(path: &Path) -> Result<PathBuf> {
         ::std::io::Error::new(
             ::std::io::ErrorKind::NotFound,
             "Unable to get parent directory",
-        ).into(),
+        )
+        .into(),
     )
 }
 

@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::util::whitespace;
-use types::{Input, PResult};
+use crate::inner_errors::ParserError;
+use crate::parsers::util::whitespace;
+use crate::types::{Input, PResult};
 
 named!(pub multispace0<Input, Vec<Input>, ParserError>, fix_error!(ParserError, many0!(whitespace)));
 named!(pub multispace1<Input, Vec<Input>, ParserError>, fix_error!(ParserError, many1!(whitespace)));
@@ -43,7 +43,7 @@ macro_rules! char_e {
   ($i:expr, $($args:expr),* ) => ( $crate::parsers::replacements::char_e( $i, $($args),* ) );
 }
 
-pub fn char_e<'a>(input: Input<'a>, tag: char) -> PResult<'a, char> {
+pub fn char_e(input: Input<'_>, tag: char) -> PResult<'_, char> {
     let result = fix_error!(input, ParserError, char!(tag));
 
     result

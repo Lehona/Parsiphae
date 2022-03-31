@@ -1,6 +1,6 @@
-use ppa::visitor::*;
-use types;
-use types::parsed;
+use crate::ppa::visitor::*;
+use crate::types;
+use crate::types::parsed;
 
 #[derive(Debug, Default)]
 pub struct SymbolCollector {

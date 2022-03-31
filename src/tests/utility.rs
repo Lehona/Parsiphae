@@ -1,8 +1,8 @@
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
+use crate::types::{Expression, Input};
 use nom::Context::Code;
 use nom::{Err, ErrorKind, IResult};
 use std::fmt::Debug;
-use types::{Expression, Input};
 
 pub fn incomplete_result<'a, O, E>() -> IResult<Input<'a>, O, E> {
     let err = Err::Error(Code(Input(b""), ErrorKind::Eof));

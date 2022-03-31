@@ -1,7 +1,7 @@
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
+use crate::parsers::{expression, replacements::*, statement_block};
+use crate::types::{IfBranch, IfStatement, Input, Statement};
 use nom::ErrorKind;
-use parsers::{expression, replacements::*, statement_block};
-use types::{IfBranch, IfStatement, Input, Statement};
 
 named!(pub if_branch<Input, IfBranch, ParserError>, do_parse!(
     tag_no_case_e!("if") >> multispace0 >>
@@ -39,7 +39,7 @@ named!(pub if_clause<Input, IfStatement, ParserError>, fix_error!(ParserError, d
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{BinaryExpression, BinaryOperator, Call, Expression, Identifier, Statement};
+    use crate::types::{BinaryExpression, BinaryOperator, Call, Expression, Identifier, Statement};
 
     #[test]
     fn simple_empty() {

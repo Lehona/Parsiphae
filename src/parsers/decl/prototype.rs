@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::{identifier_parser, statement};
-use types::{Input, Prototype};
+use crate::inner_errors::ParserError;
+use crate::parsers::{identifier_parser, statement};
+use crate::types::{Input, Prototype};
 
 named!(pub prototype<Input, Prototype, ParserError>, fix_error!(ParserError, gws!(do_parse!(
     tag_no_case_e!("prototype") >>
@@ -17,7 +17,9 @@ named!(pub prototype<Input, Prototype, ParserError>, fix_error!(ParserError, gws
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Assignment, AssignmentOperator, Expression, Identifier, Statement, VarAccess};
+    use crate::types::{
+        Assignment, AssignmentOperator, Expression, Identifier, Statement, VarAccess,
+    };
 
     #[test]
     fn simple() {

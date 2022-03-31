@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::{expression, var_access};
-use types::{Assignment, AssignmentOperator, Input};
+use crate::inner_errors::ParserError;
+use crate::parsers::{expression, var_access};
+use crate::types::{Assignment, AssignmentOperator, Input};
 
 named!(pub assignment<Input, Assignment, ParserError>, fix_error!(ParserError, gws!(do_parse!(
     lhs: var_access >> multispace0 >>
@@ -22,7 +22,7 @@ named!(pub assignment<Input, Assignment, ParserError>, fix_error!(ParserError, g
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Expression, Identifier, VarAccess};
+    use crate::types::{Expression, Identifier, VarAccess};
 
     #[test]
     fn simple_eq_int() {

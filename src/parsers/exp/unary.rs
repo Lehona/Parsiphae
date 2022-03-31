@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::Value;
-use types::{Expression, Input, UnaryExpression};
+use crate::inner_errors::ParserError;
+use crate::parsers::Value;
+use crate::types::{Expression, Input, UnaryExpression};
 
 named!(pub Unary<Input, Expression, ParserError>, fix_error!(ParserError, alt!(
     gws!(do_parse!(
@@ -15,7 +15,7 @@ named!(pub Unary<Input, Expression, ParserError>, fix_error!(ParserError, alt!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tests::utility::*;
+    use crate::tests::utility::*;
 
     #[test]
     fn single() {

@@ -1,4 +1,5 @@
-use types::Expression;
+use crate::lexer::TokenKind;
+use crate::types::Expression;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum BinaryOperator {
@@ -19,6 +20,34 @@ pub enum BinaryOperator {
     BitAnd,
     Or,
     BitOr,
+}
+
+impl std::convert::TryFrom<TokenKind> for BinaryOperator {
+    type Error = anyhow::Error;
+    fn try_from(item: TokenKind) -> anyhow::Result<Self> {
+        match item {
+            TokenKind::Plus => Ok(BinaryOperator::Plus),
+            TokenKind::Minus => Ok(BinaryOperator::Minus),
+            TokenKind::Multiply => Ok(BinaryOperator::Multiply),
+            TokenKind::Divide => Ok(BinaryOperator::Divide),
+            TokenKind::ShiftLeft => Ok(BinaryOperator::LSL),
+            TokenKind::ShiftRight => Ok(BinaryOperator::LSR),
+            TokenKind::Greater => Ok(BinaryOperator::GT),
+            TokenKind::Lower => Ok(BinaryOperator::LT),
+            TokenKind::GreaterEquals => Ok(BinaryOperator::GE),
+            TokenKind::LowerEquals => Ok(BinaryOperator::LE),
+            TokenKind::Equals => Ok(BinaryOperator::Eq),
+            TokenKind::NotEquals => Ok(BinaryOperator::NotEq),
+            TokenKind::And => Ok(BinaryOperator::And),
+            TokenKind::BitAnd => Ok(BinaryOperator::BitAnd),
+            TokenKind::Or => Ok(BinaryOperator::Or),
+            TokenKind::BitOr => Ok(BinaryOperator::BitOr),
+            _ => anyhow::bail!(
+                "Trying to convert illegal token to BinaryOperator: {:?}",
+                item
+            ),
+        }
+    }
 }
 
 impl BinaryOperator {

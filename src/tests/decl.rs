@@ -1,6 +1,6 @@
-use parsers::var_decl;
-use tests::utility::*;
-use types::{ArraySizeDeclaration, Identifier, VarDeclaration};
+use crate::parsers::var_decl;
+use crate::tests::utility::*;
+use crate::types::{ArraySizeDeclaration, Identifier, VarDeclaration};
 
 #[test]
 pub fn test_var_decl() {

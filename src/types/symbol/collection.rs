@@ -1,5 +1,5 @@
-use types;
-use types::parsed;
+use crate::types;
+use crate::types::parsed;
 
 pub struct SymbolCollection {
     syms: Vec<(types::Identifier, parsed::Symbol)>,

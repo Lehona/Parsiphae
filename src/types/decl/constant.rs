@@ -1,4 +1,4 @@
-use types::{ArraySizeDeclaration, Expression, Identifier};
+use crate::types::{ArraySizeDeclaration, Expression, Identifier};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstDeclaration {

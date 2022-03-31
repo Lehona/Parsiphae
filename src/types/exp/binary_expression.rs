@@ -1,4 +1,4 @@
-use types::{BinaryOperator, Expression};
+use crate::types::{BinaryOperator, Expression};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BinaryExpression {

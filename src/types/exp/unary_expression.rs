@@ -1,4 +1,7 @@
-use types::{Expression, UnaryOperator};
+use crate::lexer;
+use crate::types::{Expression, UnaryOperator};
+use anyhow::Result;
+use std::convert::TryInto;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryExpression {
@@ -12,6 +15,13 @@ impl UnaryExpression {
             op: UnaryOperator::from_ascii(op),
             right,
         }
+    }
+
+    pub fn new_token(op: lexer::TokenKind, right: Expression) -> Result<Self> {
+        Ok(UnaryExpression {
+            op: op.try_into()?,
+            right,
+        })
     }
 
     pub fn evaluate(&self) -> Result<i64, ()> {

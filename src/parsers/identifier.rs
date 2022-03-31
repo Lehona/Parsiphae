@@ -1,5 +1,5 @@
-use inner_errors::ParserError;
-use types::{Identifier, Input};
+use crate::inner_errors::ParserError;
+use crate::types::{Identifier, Input};
 
 fn convert_identifier(input: Input) -> Identifier {
     Identifier::new(&input.0)
@@ -44,9 +44,9 @@ fn is_valid(input: Input) -> bool {
 
 fn is_keyword(input: Input) -> bool {
     lazy_static! {
-        static ref keywords: &'static [&'static [u8]] = &[b"if", b"var", b"return"];
+        static ref KEYWORDS: &'static [&'static [u8]] = &[b"if", b"var", b"return"];
     }
-    for keyword in keywords.iter() {
+    for keyword in KEYWORDS.iter() {
         if input.eq_ignore_ascii_case(keyword) {
             return true;
         }
@@ -58,8 +58,8 @@ fn is_keyword(input: Input) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::utility::*;
     use nom::ErrorKind;
-    use tests::utility::*;
 
     #[test]
     pub fn test_identifier_parser() {
@@ -84,5 +84,4 @@ mod tests {
             failure_result(b"123", ErrorKind::Verify),
         );
     }
-
 }

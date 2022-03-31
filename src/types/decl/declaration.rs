@@ -1,4 +1,4 @@
-use types::{
+use crate::types::{
     Class, ConstArrayDeclaration, ConstDeclaration, Function, Instance, Prototype, VarDeclaration,
 };
 

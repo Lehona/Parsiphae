@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::{identifier_parser, replacements::*, statement_block, var_decl_list_0};
-use types::{Function, Input};
+use crate::inner_errors::ParserError;
+use crate::parsers::{identifier_parser, replacements::*, statement_block, var_decl_list_0};
+use crate::types::{Function, Input};
 
 named!(pub func<Input, Function, ParserError>, fix_error!(ParserError, do_parse!(
     tag_no_case_e!("func") >>   multispace1 >>
@@ -16,7 +16,7 @@ named!(pub func<Input, Function, ParserError>, fix_error!(ParserError, do_parse!
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Expression, Identifier, Statement, VarDeclaration};
+    use crate::types::{Expression, Identifier, Statement, VarDeclaration};
 
     #[test]
     fn empty_void() {
@@ -66,5 +66,4 @@ mod tests {
 
         assert_eq!(expected, actual);
     }
-
 }

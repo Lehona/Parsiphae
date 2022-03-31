@@ -10,6 +10,7 @@ readme = "Readme.md"
 keywords = ["gothic", "daedalus", "parser", "compiler"]
 categories = ["parser-implementations"]
 license = "MIT"
+edition = "2018"
 
 [dependencies]
 clap = "2.32.0"
@@ -18,6 +19,7 @@ glob = "0.2.11"
 lazy_static = "1.0.1"
 time = "0.1"
 derive_more = "0.13.0"
+anyhow = "1.0.34"
 
 [dependencies.nom]
 version = "4.0.0"

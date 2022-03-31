@@ -1,4 +1,4 @@
-use types::Identifier;
+use crate::types::Identifier;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VarDeclaration {

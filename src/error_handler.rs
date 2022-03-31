@@ -1,7 +1,7 @@
-use errors;
-use inner_errors::ParserError;
+use crate::errors;
+use crate::inner_errors::ParserError;
+use crate::types::{Input, PrintableByteSlice};
 use std::path::Path;
-use types::{Input, PrintableByteSlice};
 
 pub fn map_err(input: &[u8], err: ::nom::Err<Input, ParserError>) -> errors::Error {
     use nom::Err;

@@ -1,6 +1,6 @@
-use inner_errors::ParserError;
-use parsers::{expression, identifier_parser};
-use types::{Input, VarAccess};
+use crate::inner_errors::ParserError;
+use crate::parsers::{expression, identifier_parser};
+use crate::types::{Input, VarAccess};
 
 named!(pub var_access<Input, VarAccess, ParserError>, fix_error!(ParserError, gws!(do_parse!(
     first: identifier_parser >>
@@ -18,7 +18,7 @@ named!(pub var_access<Input, VarAccess, ParserError>, fix_error!(ParserError, gw
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Expression, Identifier};
+    use crate::types::{Expression, Identifier};
 
     #[test]
     fn simple() {

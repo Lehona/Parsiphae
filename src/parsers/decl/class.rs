@@ -1,8 +1,8 @@
-use inner_errors::ParserError;
+use crate::inner_errors::ParserError;
+use crate::parsers::util::flatten_vec;
+use crate::parsers::{identifier_parser, replacements::*, var_decl_list};
+use crate::types::{Class, Input};
 use nom::ErrorKind;
-use parsers::util::flatten_vec;
-use parsers::{identifier_parser, replacements::*, var_decl_list};
-use types::{Class, Input};
 
 named!(pub class<Input, Class, ParserError>, do_parse!(
     tag_no_case_e!("class") >>
@@ -27,7 +27,7 @@ named!(class_real<Input, Class, ParserError>, fix_error!(ParserError, gws!(do_pa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{Identifier, VarDeclaration};
+    use crate::types::{Identifier, VarDeclaration};
 
     #[test]
     fn simple() {
