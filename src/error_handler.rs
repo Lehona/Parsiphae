@@ -96,7 +96,7 @@ pub fn handle_single_error<P: AsRef<Path>>(
     );
 }
 
-fn get_line_number(content: &[u8], offset: usize) -> usize {
+pub fn get_line_number(content: &[u8], offset: usize) -> usize {
     content[0..offset].iter().filter(|b| **b == b'\n').count() + 1
 }
 

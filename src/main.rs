@@ -4,7 +4,6 @@ extern crate clap;
 extern crate time;
 
 extern crate parsiphae;
-mod processor;
 
 use clap::{App, Arg};
 use std::io::Read;
@@ -18,7 +17,7 @@ fn main() {
     let mut exitcode = 0;
     if let Err(ref e) = run() {
         match e {
-            errors::Error::ParsingError{ .. } => {
+            errors::Error::ParsingError { .. } => {
                 exitcode = 2;
             }
             _ => {
@@ -81,25 +80,26 @@ fn run() -> errors::Result<()> {
                 match tokens {
                     Err(e) => println!("Error: {:?}", e),
                     Ok(tokenlist) => {
+                        // println!("{}", tokenlist.iter().map(|t|t.stringified()).collect::<Vec<_>>().join("\n"));
                         let mut parser =
-                            parsiphae::handwritten_parsers::parser::Parser::new(tokenlist);
+                            parsiphae::parser::parser::Parser::new(tokenlist);
 
                         let decls = parser.start();
 
                         if let Err(e) = decls {
                             println!("{:?}", e);
                         } else {
-                            println!("Parse successful");
+                            println!("Parse successful: {:#?}", decls.unwrap());
                         }
                     }
                 }
             } else {
-                processor::process_single_file(path)?;
+                parsiphae::processor::process_single_file(path)?;
             }
         }
         None => {
             let path = arguments.value_of("SRC").unwrap();
-            processor::process_src(path)?;
+            parsiphae::processor::process_src(path)?;
         }
     }
 

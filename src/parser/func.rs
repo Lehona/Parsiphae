@@ -1,8 +1,8 @@
 use crate::lexer::TokenKind;
 use crate::types::{Function, Instance, Prototype};
-use anyhow::Result;
 
-impl crate::handwritten_parsers::parser::Parser {
+use crate::parser::errors::Result;
+impl crate::parser::parser::Parser {
     pub fn func_decl(&mut self) -> Result<Function> {
         self.consume(TokenKind::Func)?;
 
@@ -65,7 +65,7 @@ impl crate::handwritten_parsers::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::handwritten_parsers::parser::Parser;
+    use crate::parser::parser::Parser;
     use crate::lexer::lex;
     use crate::types::{
         Assignment, AssignmentOperator, Expression, Identifier, Statement, VarAccess,

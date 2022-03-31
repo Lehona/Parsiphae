@@ -3,9 +3,11 @@ use crate::types::{
     ArraySizeDeclaration, Class, ConstArrayDeclaration, ConstArrayInitializer, ConstDeclaration,
     Declaration, Statement, VarDeclaration,
 };
-use anyhow::{bail, Result};
 
-impl crate::handwritten_parsers::parser::Parser {
+use super::errors::{ParsingError, ParsingErrorKind as PEK};
+use crate::parser::errors::Result;
+
+impl crate::parser::parser::Parser {
     pub fn var_decl(&mut self) -> Result<Vec<VarDeclaration>> {
         let mut decls = Vec::new();
         decls.push(self.single_var_decl()?);
@@ -39,7 +41,10 @@ impl crate::handwritten_parsers::parser::Parser {
                 ArraySizeDeclaration::Identifier(ident)
             }
         } else {
-            bail!("Unable to parse array size declaration.");
+            return Err(ParsingError::from_token(
+                PEK::ExpectedToken(TokenKind::SquareOpen),
+                self.current_ref()?,
+            ));
         };
 
         self.consume(TokenKind::SquareClose)?;
@@ -93,7 +98,10 @@ impl crate::handwritten_parsers::parser::Parser {
             ));
         }
 
-        bail!("Unable to parse constant declaration. Expected = or [");
+        return Err(ParsingError::from_token(
+            PEK::ExpectedOneOfToken(vec![TokenKind::SquareOpen, TokenKind::Assign]),
+            self.current_ref()?,
+        ));
     }
 
     pub fn const_decl_decl(&mut self) -> Result<Declaration> {
@@ -102,7 +110,7 @@ impl crate::handwritten_parsers::parser::Parser {
         Ok(match decl {
             Statement::ConstDeclaration(d) => Declaration::Const(d),
             Statement::ConstArrayDeclaration(d) => Declaration::ConstArray(d),
-            _ => bail!("Const decl parser produced a non-const-decl type"),
+            _ => return Err(ParsingError::internal_error()),
         })
     }
 
@@ -141,7 +149,16 @@ impl crate::handwritten_parsers::parser::Parser {
         } else if self.check(TokenKind::Class) {
             Declaration::Class(self.class_decl()?)
         } else {
-            bail!("Unable to parse a declaration!");
+            return Err(ParsingError::from_token(
+                PEK::ExpectedOneOfToken(vec![
+                    TokenKind::Func,
+                    TokenKind::Var,
+                    TokenKind::Const,
+                    TokenKind::Prototype,
+                    TokenKind::Class,
+                ]),
+                self.current_ref()?,
+            ));
         };
 
         Ok(decl)
@@ -151,7 +168,7 @@ impl crate::handwritten_parsers::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::handwritten_parsers::parser::Parser;
+    use crate::parser::parser::Parser;
     use crate::lexer::lex;
     use crate::types::{Expression, Identifier, Statement, StringLiteral, UnaryExpression};
 

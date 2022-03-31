@@ -1,3 +1,4 @@
+use crate::parser::errors::{ParsingError, Result as PResult};
 use crate::lexer;
 use crate::types::{Expression, UnaryOperator};
 use anyhow::Result;
@@ -17,9 +18,9 @@ impl UnaryExpression {
         }
     }
 
-    pub fn new_token(op: lexer::TokenKind, right: Expression) -> Result<Self> {
+    pub fn new_token(op: lexer::TokenKind, right: Expression) -> PResult<Self> {
         Ok(UnaryExpression {
-            op: op.try_into()?,
+            op: op.try_into().map_err(|_| ParsingError::internal_error())?,
             right,
         })
     }

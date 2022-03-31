@@ -1,7 +1,6 @@
+use crate::parser::errors::{ParsingError, ParsingErrorKind as PEK, Result};
 use crate::lexer::{Token, TokenKind};
 use crate::types::Declaration;
-use anyhow::{bail, Result};
-
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -39,7 +38,10 @@ impl Parser {
 
     pub fn current(&mut self) -> Result<Token> {
         if self.current >= self.tokens.len() {
-            bail!("Reached end of the token stream!");
+            return Err(ParsingError::from_token(
+                PEK::ReachedEOF,
+                self.tokens.last().expect("There's always EOF"),
+            ));
         }
 
         Ok(self.tokens[self.current].clone())
@@ -47,7 +49,10 @@ impl Parser {
 
     pub fn current_ref(&self) -> Result<&Token> {
         if self.current >= self.tokens.len() {
-            bail!("Reached end of the token stream!");
+            return Err(ParsingError::from_token(
+                PEK::ReachedEOF,
+                self.tokens.last().expect("There's always EOF"),
+            ));
         }
 
         Ok(&self.tokens[self.current])
@@ -65,7 +70,8 @@ impl Parser {
         if self.check(token) {
             self.advance();
         } else {
-            bail!("Unexpected Token; found {:?}", self.current_ref());
+            // TODO Select Error Kind based upon expected token
+            return Err(ParsingError::from_token(PEK::Failure, self.current_ref()?));
         }
         Ok(())
     }
@@ -76,7 +82,11 @@ impl Parser {
 
     pub fn previous(&mut self) -> Result<Token> {
         if self.current == 0 {
-            bail!("Trying to retreive token -1!");
+            // TODO unlikely to happen but find a better error message
+            return Err(ParsingError::from_token(
+                PEK::ReachedEOF,
+                self.tokens.last().expect("There's always EOF"),
+            ));
         }
 
         Ok(self.tokens[self.current - 1].clone())

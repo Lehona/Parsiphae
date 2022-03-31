@@ -77,6 +77,17 @@ pub struct Token {
     pub span: (usize, usize), // (Start, End)
 }
 
+impl Token {
+    pub fn stringified(&self) -> String {
+        match &self.kind {
+            TokenKind::Comment(c) => format!("// {}", c.replace("\n", "\\n")),
+            TokenKind::Identifier(id) => format!("{}", String::from_utf8_lossy(&id).to_uppercase()),
+            TokenKind::StringLit(s) => format!("\"{}\"", String::from_utf8_lossy(&s)),
+            _ => format!("{:?}", self.kind).to_uppercase(),
+        }
+    }
+}
+
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?} ({} - {})", self.kind, self.span.0, self.span.1)
@@ -411,21 +422,39 @@ pub fn lex(mut input: &[u8]) -> Result<Vec<Token>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use TokenKind::*;
     use crate::lexer::lex;
+    use TokenKind::*;
 
     #[test]
     fn no_ws() {
         let input = b"1+2=3";
         let lexed = lex(input).unwrap();
 
-        let expected = vec![ 
-            Token { kind: Integer(1), span: (0, 1) },
-            Token { kind: Plus, span: (1, 2) },
-            Token { kind: Integer(2), span: (2, 3) },
-            Token { kind: Assign, span: (3, 4) },
-            Token { kind: Integer(3), span: (4, 5) },
-            Token { kind: EOF, span: (5, 5) },
+        let expected = vec![
+            Token {
+                kind: Integer(1),
+                span: (0, 1),
+            },
+            Token {
+                kind: Plus,
+                span: (1, 2),
+            },
+            Token {
+                kind: Integer(2),
+                span: (2, 3),
+            },
+            Token {
+                kind: Assign,
+                span: (3, 4),
+            },
+            Token {
+                kind: Integer(3),
+                span: (4, 5),
+            },
+            Token {
+                kind: EOF,
+                span: (5, 5),
+            },
         ];
 
         assert_eq!(expected, lexed);
@@ -436,13 +465,31 @@ mod tests {
         let input = b"1 + 2 = 3";
         let lexed = lex(input).unwrap();
 
-        let expected = vec![ 
-            Token { kind: Integer(1), span: (0, 1) },
-            Token { kind: Plus, span: (2, 3) },
-            Token { kind: Integer(2), span: (4, 5) },
-            Token { kind: Assign, span: (6, 7) },
-            Token { kind: Integer(3), span: (8, 9) },
-            Token { kind: EOF, span: (9, 9) },
+        let expected = vec![
+            Token {
+                kind: Integer(1),
+                span: (0, 1),
+            },
+            Token {
+                kind: Plus,
+                span: (2, 3),
+            },
+            Token {
+                kind: Integer(2),
+                span: (4, 5),
+            },
+            Token {
+                kind: Assign,
+                span: (6, 7),
+            },
+            Token {
+                kind: Integer(3),
+                span: (8, 9),
+            },
+            Token {
+                kind: EOF,
+                span: (9, 9),
+            },
         ];
 
         assert_eq!(expected, lexed);
@@ -453,13 +500,31 @@ mod tests {
         let input = b"foo + 2\r\n= 3";
         let lexed = lex(input).unwrap();
 
-        let expected = vec![ 
-            Token { kind: Identifier(b"foo".to_vec()), span: (0, 3) },
-            Token { kind: Plus, span: (4, 5) },
-            Token { kind: Integer(2), span: (6, 7) },
-            Token { kind: Assign, span: (9, 10) },
-            Token { kind: Integer(3), span: (11, 12) },
-            Token { kind: EOF, span: (12, 12) },
+        let expected = vec![
+            Token {
+                kind: Identifier(b"foo".to_vec()),
+                span: (0, 3),
+            },
+            Token {
+                kind: Plus,
+                span: (4, 5),
+            },
+            Token {
+                kind: Integer(2),
+                span: (6, 7),
+            },
+            Token {
+                kind: Assign,
+                span: (9, 10),
+            },
+            Token {
+                kind: Integer(3),
+                span: (11, 12),
+            },
+            Token {
+                kind: EOF,
+                span: (12, 12),
+            },
         ];
 
         assert_eq!(expected, lexed);

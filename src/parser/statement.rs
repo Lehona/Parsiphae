@@ -1,9 +1,11 @@
+use crate::parser::errors::{
+    ParsePossibility as PP, ParsingError, ParsingErrorKind as PEK, Result,
+};
 use crate::lexer::TokenKind;
 use crate::types::{Assignment, IfBranch, IfStatement, Statement, VarDeclaration};
-use anyhow::{bail, Result};
 use std::convert::TryInto;
 
-impl crate::handwritten_parsers::parser::Parser {
+impl crate::parser::parser::Parser {
     pub fn statement(&mut self) -> Result<Statement> {
         let ice = self.freeze();
 
@@ -26,7 +28,15 @@ impl crate::handwritten_parsers::parser::Parser {
                     Ok(exp) => return Ok(Statement::Exp(exp)),
                     _ => self.restore(ice),
                 }
-                bail!("Unable to parse Statement. Expected one of <If>, <Assign>, <Expression>");
+                return Err(ParsingError::from_token(
+                    PEK::ExpectedOneOf(vec![
+                        PP::IfClause,
+                        PP::Assignment,
+                        PP::Expression,
+                        PP::Declaration,
+                    ]),
+                    self.current_ref()?,
+                ));
             }
         })()?;
 
@@ -96,11 +106,20 @@ impl crate::handwritten_parsers::parser::Parser {
 
             Ok(Assignment {
                 var: left_side,
-                op: op.try_into()?,
+                op: op.try_into().unwrap(), // TODO: fix unwrap
                 exp,
             })
         } else {
-            bail!("Unable to parse assignment. Expected one of: =, +=, -=, /=, *=");
+            return Err(ParsingError::from_token(
+                PEK::ExpectedOneOfToken(vec![
+                    TokenKind::Assign,
+                    TokenKind::PlusAssign,
+                    TokenKind::MinusAssign,
+                    TokenKind::DivideAssign,
+                    TokenKind::MultiplyAssign,
+                ]),
+                self.current_ref()?,
+            ));
         }
     }
 
@@ -136,7 +155,7 @@ impl crate::handwritten_parsers::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::handwritten_parsers::parser::Parser;
+    use crate::parser::parser::Parser;
     use crate::lexer::lex;
     use crate::types::{
         ArraySizeDeclaration, AssignmentOperator, BinaryExpression, BinaryOperator, Call,

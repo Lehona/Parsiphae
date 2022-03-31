@@ -1,6 +1,6 @@
-use parsiphae::ppa::symbol_collector::SymbolCollector;
-use parsiphae::types::SymbolCollection;
-use parsiphae::{error_handler, errors::*, ppa, src_parser, types};
+use crate::ppa::symbol_collector::SymbolCollector;
+use crate::types::SymbolCollection;
+use crate::{errors::*, ppa, src_parser, types};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -36,16 +36,23 @@ impl ParsingResult {
     }
 }
 
+// TODO: Figure out new error handling!
 fn process_file<P: AsRef<Path>>(path: P) -> Result<ParsingResult> {
     let mut file = ::std::fs::File::open(&path).unwrap();
 
     let mut content = Vec::new();
     file.read_to_end(&mut content)?;
 
-    use parsiphae::parsers::*;
-    let result = start(types::Input(&content))
-        .map_err(|err| error_handler::map_err(&content, err))
-        .map(|tuple| tuple.1);
+    let tokens = crate::lexer::lex(&content).expect("Unable to tokenize");
+    let mut parser = crate::parser::parser::Parser::new(tokens);
+
+    let result = parser
+        .start()
+        .map(|declarations| types::AST { declarations })
+        .map_err(|e| Error::ParsingError {
+            err: crate::inner_errors::ParserError::FromNom,
+            line: crate::error_handler::get_line_number(&content, e.span.0),
+        });
 
     Ok(ParsingResult::new(path, result))
 }
@@ -56,17 +63,13 @@ pub fn process_single_file<P: AsRef<Path>>(path: P) -> Result<types::AST> {
     let mut visitor = SymbolCollector::new();
     {
         if let Ok(ref ast) = res.result {
-            ::parsiphae::ppa::visitor::visit_ast(&ast, &mut visitor);
+            crate::ppa::visitor::visit_ast(&ast, &mut visitor);
         }
-
-        // println!("{:#?}", &visitor);
 
         let symbols = SymbolCollection::new(visitor.syms);
         let mut typechk = ppa::typecheck::TypeChecker::new(&symbols);
         typechk.typecheck();
     }
-
-    //res.print();
 
     return res.result;
 }
@@ -82,10 +85,8 @@ pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
         let okay_results = results.iter().filter_map(|res| res.result.as_ref().ok());
 
         for ast in okay_results {
-            ::parsiphae::ppa::visitor::visit_ast(&ast, &mut visitor);
+            crate::ppa::visitor::visit_ast(&ast, &mut visitor);
         }
-
-        // println!("{:#?}", visitor);
     }
 
     println!("Parsed {} files", results.len());

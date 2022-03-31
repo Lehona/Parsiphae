@@ -1,10 +1,12 @@
+use crate::parser::errors::{
+    ParsePossibility as PP, ParsingError, ParsingErrorKind as PEK, Result,
+};
 use crate::lexer::TokenKind;
 use crate::types::{Expression, Identifier, VarAccess};
-use anyhow::{bail, Result};
 
 use std::convert::TryInto;
 
-impl crate::handwritten_parsers::parser::Parser {
+impl crate::parser::parser::Parser {
     fn unary(&mut self) -> Result<Expression> {
         if match_tok!(
             self,
@@ -17,7 +19,7 @@ impl crate::handwritten_parsers::parser::Parser {
             let right = self.unary()?;
 
             Ok(crate::types::Expression::Unary(Box::new(
-                crate::types::UnaryExpression::new_token(op.try_into()?, right)?,
+                crate::types::UnaryExpression::new_token(op.try_into().unwrap(), right)?, // TODO: fix unwrap
             )))
         } else {
             self.value()
@@ -94,7 +96,12 @@ impl crate::handwritten_parsers::parser::Parser {
             TokenKind::Prototype => Identifier::new(b"prototype"),
             TokenKind::Instance => Identifier::new(b"instance"),
             TokenKind::Func => Identifier::new(b"func"),
-            _ => bail!("Expected Identifier, found {:?}", self.current_ref()),
+            _ => {
+                return Err(ParsingError::from_token(
+                    PEK::ExpectedToken(TokenKind::Identifier(vec![])),
+                    self.current_ref()?,
+                ))
+            }
         };
 
         self.advance();
@@ -134,7 +141,10 @@ impl crate::handwritten_parsers::parser::Parser {
             _ => (),
         }
 
-        bail!("Unable to parse value. Expected one of: <Call>, <Variable>, <Integer>, <Decimal>");
+        return Err(ParsingError::from_token(
+            PEK::ExpectedOneOf(vec![PP::Call, PP::VariableAccess, PP::Integer, PP::Decimal]),
+            self.current_ref()?,
+        ));
     }
 
     pub fn var_access(&mut self) -> Result<VarAccess> {
@@ -176,16 +186,27 @@ impl crate::handwritten_parsers::parser::Parser {
         let binary = self.boolean();
 
         match binary {
-			Ok(_) => return binary,
-			Err(e) => bail!("Unable to parse value. Expected one of: <Call>, <Variable>, <Integer>, <Decimal>, <String>. Context: {}", e),
-		}
+            Ok(_) => return binary,
+            Err(_e) => {
+                return Err(ParsingError::from_token(
+                    PEK::ExpectedOneOf(vec![
+                        PP::Call,
+                        PP::VariableAccess,
+                        PP::Integer,
+                        PP::Decimal,
+                        PP::StringLiteral,
+                    ]),
+                    self.current_ref()?,
+                ))
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::handwritten_parsers::parser::Parser;
+    use crate::parser::parser::Parser;
     use crate::lexer::lex;
     use crate::types::{Call, Identifier, StringLiteral, VarAccess};
 

@@ -29,7 +29,7 @@ macro_rules! optional_match {
 
 macro_rules! binary_parser {
     ($self:ident, $name:ident, $next:ident, $first:pat $(, $tail:pat)*) => {
-        fn $name(&mut $self) -> anyhow::Result<Expression> {
+        fn $name(&mut $self) -> crate::parser::errors::Result<Expression> {
             use std::convert::TryFrom;
 
             let mut expr = $self.$next()?;
@@ -39,7 +39,7 @@ macro_rules! binary_parser {
                 let right = $self.$next()?;
 
                 expr = crate::types::Expression::Binary(Box::new(crate::types::BinaryExpression::new(
-                                        crate::types::BinaryOperator::try_from(op).map_err(|e|anyhow::anyhow!("Unable to cast Token to BinaryOperator. {}", e))?,
+                                        crate::types::BinaryOperator::try_from(op).map_err(|_| ParsingError::internal_error())?,
                                         expr,
                                         right,
                                     )));
