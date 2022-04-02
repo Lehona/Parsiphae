@@ -2,12 +2,22 @@ use crate::lexer::TokenKind;
 use crate::types::{Function, Instance, Prototype};
 
 use crate::parser::errors::Result;
+
+use super::errors::{ParsingError, ParsingErrorKind};
 impl crate::parser::parser::Parser {
     pub fn func_decl(&mut self) -> Result<Function> {
         self.consume(TokenKind::Func)?;
 
-        let typ = self.ident()?;
-        let name = self.ident()?;
+        let typ = match self.ident() {
+            Ok(typ) => typ,
+            Err(_e) => return Err(ParsingError::from_token(ParsingErrorKind::MissingFunctionType, self.current_id(), false)),
+        };
+
+        let name = match self.ident() {
+            Ok(name) => name,
+            Err(_e) => return Err(ParsingError::from_token(ParsingErrorKind::MissingFunctionName, self.current_id(), false)),
+        };
+
         let mut params = Vec::new();
 
         self.consume(TokenKind::ParenOpen)?;
@@ -22,6 +32,8 @@ impl crate::parser::parser::Parser {
 
         self.consume(TokenKind::ParenClose)?;
 
+        self.save_progress();
+        
         let body = self.block()?;
 
         Ok(Function {
@@ -35,9 +47,15 @@ impl crate::parser::parser::Parser {
     pub fn instance_decl(&mut self) -> Result<Instance> {
         self.consume(TokenKind::Instance)?;
 
-        let name = self.ident()?;
+        let name = match self.ident() {
+            Ok(name) => name,
+            Err(_e) => return Err(ParsingError::from_token(ParsingErrorKind::MissingInstanceName, self.current_id(), false)),
+        };
         self.consume(TokenKind::ParenOpen)?;
-        let class = self.ident()?;
+        let class = match self.ident() {
+            Ok(class) => class,
+            Err(_e) => return Err(ParsingError::from_token(ParsingErrorKind::MissingInstanceType, self.current_id(), false)),
+        };
         self.consume(TokenKind::ParenClose)?;
 
         let body = if self.check(TokenKind::BracketOpen) {
@@ -82,7 +100,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.func_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -102,7 +120,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.func_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -121,7 +139,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.func_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -137,7 +155,7 @@ mod tests {
             body: vec![Statement::Exp(Expression::Int(3))],
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.func_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -152,7 +170,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.prototype_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -171,7 +189,7 @@ mod tests {
             })],
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.prototype_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -186,7 +204,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.instance_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -205,7 +223,7 @@ mod tests {
             })],
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.instance_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -220,7 +238,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.instance_decl().unwrap();
 
         assert_eq!(expected, actual);

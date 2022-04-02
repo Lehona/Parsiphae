@@ -23,7 +23,7 @@ fn test_parse_ikarus() {
     let output = include_str!("output/Ikarus.ast");
 
     let tokens = parsiphae::lexer::lex(input).expect("Failed to tokenize");
-    let mut parser = parsiphae::parser::parser::Parser::new(tokens);
+    let mut parser = parsiphae::parser::parser::Parser::new(&tokens);
     let decls = parser.start().expect("Unable to parse");
 
     // TODO Figure out a way to produce a meaningful diff here to find the difference.

@@ -1,116 +1,126 @@
-use crate::errors;
-use crate::inner_errors::ParserError;
-use crate::types::{Input, PrintableByteSlice};
-use std::path::Path;
+use codespan_reporting::{diagnostic::{Diagnostic, Label}, term::{termcolor::{StandardStream, self}, emit}};
 
-pub fn map_err(input: &[u8], err: ::nom::Err<Input, ParserError>) -> errors::Error {
-    use nom::Err;
+use crate::{processor::ParsingResult, parser::errors::{ParsingError, ParsingErrorKind as PEK}, errors::Error, file::FileDb};
 
-    match err {
-        Err::Incomplete(_) => unreachable!(),
+pub fn process_parsing_result(file_db: &FileDb, result: ParsingResult) {
+    if let Err(Error::ParsingError(ParsingError { kind, token_start, token_end, .. })) = result.result {
+        let message = match &kind {
+            PEK::InternalParserFailure => "Oops, something went wrong.".to_string(),
+            PEK::ReachedEOF => "Reached End of File during parsing.".to_string(),
+            PEK::Expected(poss) => format!("Expected to parse {}", poss.reason()),
+            PEK::ExpectedOneOf(_poss_vec) => format!("Expected to parse {}", kind.reason()),
+            PEK::ExpectedToken(_token) => format!("Expected to parse a {}", kind.reason()),
+            PEK::ExpectedOneOfToken(_tokens) => format!("Expected to parse one of: {}", kind.reason()),
+            PEK::UnexpectedToken(found, expected) => format!("Expected to find {:?} but found {:?} instead", found, expected),
+            PEK::MissingFunctionName => "This function needs a name.".to_string(),
+            _ => "missing message".to_string(),
+        };
 
-        Err::Failure(ref context) | Err::Error(ref context) => {
-            let errors = ::nom::error_to_list(context);
-            {
-                let printable_errors: Vec<_> = errors.iter().map(|(_leftover, err)| err).collect();
-                println!("{:#?}", printable_errors);
-            }
-            let relevant_errors = custom_parser_errors(&errors);
-            match &relevant_errors[..] {
-                [.., (leftover, err)] => map_single_error(input, leftover, **err),
-                _ => errors::Error::ParsingError {
-                    err: ParserError::FromNom,
-                    line: 0,
-                },
-            }
+        let label = match &kind {
+            PEK::InternalParserFailure => "Oops, something went wrong.".to_string(),
+            PEK::ReachedEOF => "Reached End of File during parsing.".to_string(),
+            PEK::Expected(poss) => format!("Cannot parse {} after this", poss.reason()),
+            PEK::ExpectedOneOf(_poss_vec) => format!("Expected to parse {}", kind.reason()),
+            PEK::ExpectedToken(_token) => format!("Expected to parse a {} after this", kind.reason()),
+            PEK::ExpectedOneOfToken(_tokens) => format!("Expected to parse one of: {}", kind.reason()),
+            PEK::UnexpectedToken(found, expected) => format!("Expected to find {:?} but found {:?} instead", found, expected),
+            PEK::MissingFunctionName => "Insert a function name here.".to_string(),
+            _ => "Missing label".to_string(),
+        };
+        
+        println!("{:?}", &kind);
+        match &kind {
+            PEK::InternalParserFailure => internal_parser_failure(file_db, result.file_id),
+            PEK::ReachedEOF => reached_eof(file_db, result.file_id),
+            PEK::MissingFunctionName => missing_function_name(file_db, result.file_id, token_end),
+            PEK::MissingFunctionType => missing_function_type(file_db, result.file_id, token_end),
+            PEK::MissingInstanceName => missing_instance_name(file_db, result.file_id, token_end),
+            PEK::MissingInstanceType => missing_instance_type(file_db, result.file_id, token_end),
+            PEK::StatementWithoutSemicolon => statement_without_semicolon(file_db, result.file_id, token_end),
+            _ => {},
         }
+
+        // let file = file_db.get(result.file_id);
+        // let span_start = file.tokens.as_ref().unwrap()[token_start].span.0; // TODO: Fix edge case where file is empty etc.
+        // let span_end = file.tokens.as_ref().unwrap()[token_end].span.1;
+
+        // let label = Label::primary(result.file_id, span_start..span_end).with_message(label); // TODO
+        // let diagnostic = Diagnostic::error().with_message(message).with_labels(vec![label]);
+
+        // let mut writer = StandardStream::stderr(termcolor::ColorChoice::Auto);
+        // let config = codespan_reporting::term::Config {end_context_lines: 3, ..Default::default()};
+
+        // emit(&mut writer, &config, file_db, &diagnostic).expect("Failed to print error");
     }
 }
 
-pub fn map_single_error(input: &[u8], leftover: &Input, err: ParserError) -> errors::Error {
-    let offset = input.len() - leftover.0.len();
-    let line = get_line_number(input, offset);
+fn emit_source_error(file_db: &FileDb, diagnostic: &Diagnostic<usize>) {
+    let mut writer = StandardStream::stderr(termcolor::ColorChoice::Auto);
+    let config = codespan_reporting::term::Config {end_context_lines: 3, ..Default::default()};
 
-    errors::Error::ParsingError { err, line }
+    emit(&mut writer, &config, file_db, &diagnostic).expect("Failed to print error");
 }
 
-fn custom_parser_errors<'a>(
-    errors: &'a Vec<(Input, ::nom::ErrorKind<ParserError>)>,
-) -> Vec<(&'a Input<'a>, &'a ParserError)> {
-    errors
-        .iter()
-        .filter_map(|(leftover, kind)| match kind {
-            ::nom::ErrorKind::Custom(err) => Some((leftover, err)),
-            _ => None,
-        })
-        .collect()
+fn internal_parser_failure(file_db: &FileDb, file_id: usize) {
+    println!("Oops, internal parser failure in file {:?}", file_db.get(file_id).path);
 }
 
-fn split_off_nom_errors<'a>(
-    errors: &'a Vec<(Input, ::nom::ErrorKind<ParserError>)>,
-) -> &'a [(Input<'a>, ::nom::ErrorKind<ParserError>)] {
-    let pos = errors.iter().rposition(|(_leftover, kind)| match kind {
-        ::nom::ErrorKind::Custom(_) => true,
-        _ => false,
-    });
+fn reached_eof(file_db: &FileDb, file_id: usize) {
+    let label = Label::primary(file_id, 0..0).with_message("End of File here");  // TODO: fix span
+    let diagnostic = Diagnostic::error().with_message("Reachd End of File").with_labels(vec![label]);
 
-    match pos {
-        None => return &errors[0..0],
-        Some(pos) => return &errors[0..=pos],
-    }
+    emit_source_error(file_db, &diagnostic);
 }
 
-pub fn last_parser_error<I>(
-    errors: Vec<(I, ::nom::ErrorKind<ParserError>)>,
-) -> Option<(I, ParserError)> {
-    errors
-        .into_iter()
-        .filter_map(|(leftover, kind)| match kind {
-            ::nom::ErrorKind::Custom(err) => Some((leftover, err)),
-            _ => None,
-        })
-        .last()
+fn missing_function_name(file_db: &FileDb, file_id: usize, token_end: usize) {
+    let file = file_db.get(file_id);
+    let span_start = file.tokens.as_ref().unwrap()[token_end-1].span.1;
+    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+
+    let label = Label::primary(file_id, span_start..span_end).with_message("The name is missing here");
+    let diagnostic = Diagnostic::error().with_message("A function is missing a name").with_labels(vec![label]);
+
+    emit_source_error(file_db, &diagnostic);
 }
 
-fn print_leftover(leftover: &[u8]) {
-    println!("{:#?}", PrintableByteSlice(leftover));
+fn missing_function_type(file_db: &FileDb, file_id: usize, token_end: usize) {
+    let file = file_db.get(file_id);
+    let span_start = file.tokens.as_ref().unwrap()[token_end-1].span.1;
+    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+
+    let label = Label::primary(file_id, span_start..span_end).with_message("The type is missing here");
+    let diagnostic = Diagnostic::error().with_message("A function is missing a return type").with_labels(vec![label]);
+
+    emit_source_error(file_db, &diagnostic);
 }
 
-pub fn handle_single_error<P: AsRef<Path>>(
-    path: P,
-    input: &[u8],
-    leftover: &Input,
-    err: &::nom::ErrorKind<ParserError>,
-) {
-    let offset = input.len() - leftover.0.len();
-    let description = match err {
-        ::nom::ErrorKind::Custom(custom) => custom.description(),
-        otherwise => otherwise.description(),
-    };
+fn missing_instance_name(file_db: &FileDb, file_id: usize, token_end: usize) {
+    let file = file_db.get(file_id);
+    let span_start = file.tokens.as_ref().unwrap()[token_end-1].span.1;
+    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
 
-    println!(
-        "Error on line {} in file {:#?}: {:#?}",
-        get_line_number(input, offset),
-        path.as_ref(),
-        description
-    );
+    let label = Label::primary(file_id, span_start..span_end).with_message("The name is missing here");
+    let diagnostic = Diagnostic::error().with_message("An instance is missing a name").with_labels(vec![label]);
+
+    emit_source_error(file_db, &diagnostic);
+}
+fn missing_instance_type(file_db: &FileDb, file_id: usize, token_end: usize) {
+    let file = file_db.get(file_id);
+    let span_start = file.tokens.as_ref().unwrap()[token_end-1].span.1;
+    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+
+    let label = Label::primary(file_id, span_start..span_end).with_message("The type is missing here");
+    let diagnostic = Diagnostic::error().with_message("An instance is missing a type").with_labels(vec![label]);
+
+    emit_source_error(file_db, &diagnostic);
 }
 
-pub fn get_line_number(content: &[u8], offset: usize) -> usize {
-    content[0..offset].iter().filter(|b| **b == b'\n').count() + 1
-}
+fn statement_without_semicolon(file_db: &FileDb, file_id: usize, token_end: usize) {
+    let file = file_db.get(file_id);
+    let span_start = file.tokens.as_ref().unwrap()[token_end-1].span.1;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    let label = Label::primary(file_id, span_start..span_start).with_message("The semicolon is missing here");
+    let diagnostic = Diagnostic::error().with_message("A statement is missing a semicolon at the end.").with_labels(vec![label]);
 
-    #[test]
-    fn lines() {
-        let input = b"a\nb\nc\nd";
-        let expected = 4;
-
-        let actual = get_line_number(input, 7);
-
-        assert_eq!(expected, actual);
-    }
+    emit_source_error(file_db, &diagnostic);
 }

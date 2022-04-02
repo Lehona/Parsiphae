@@ -99,7 +99,8 @@ impl crate::parser::parser::Parser {
             _ => {
                 return Err(ParsingError::from_token(
                     PEK::ExpectedToken(TokenKind::Identifier(vec![])),
-                    self.current_ref()?,
+                    self.current_id(),
+                    true,
                 ))
             }
         };
@@ -110,21 +111,27 @@ impl crate::parser::parser::Parser {
 
     fn parentheses(&mut self) -> Result<Expression> {
         self.consume(TokenKind::ParenOpen)?;
-        let expr = self.expression()?;
+        let expr = self.expression();
+        if let Err(_e) = expr {
+            return Err(ParsingError::from_token(PEK::Expected(PP::Expression), self.current_id()+1, false));
+        }
         self.consume(TokenKind::ParenClose)?;
-        Ok(expr)
+        Ok(expr.unwrap())
     }
 
     fn value(&mut self) -> Result<Expression> {
         let ice = self.freeze();
 
+        // TODO: implement handling of recoverability
         match self.call() {
             Ok(exp) => return Ok(exp),
+            Err(e) if !e.recoverable => return Err(e),
             _ => self.restore(ice),
         }
 
         match self.var_access() {
             Ok(va) => return Ok(Expression::Identifier(Box::new(va))),
+            Err(e) if !e.recoverable => return Err(e),
             _ => self.restore(ice),
         }
 
@@ -143,7 +150,8 @@ impl crate::parser::parser::Parser {
 
         return Err(ParsingError::from_token(
             PEK::ExpectedOneOf(vec![PP::Call, PP::VariableAccess, PP::Integer, PP::Decimal]),
-            self.current_ref()?,
+            self.current_id(),
+            true,
         ));
     }
 
@@ -151,7 +159,7 @@ impl crate::parser::parser::Parser {
         let ident = self.ident()?;
 
         let (name, instance) = if match_tok!(self, TokenKind::Period) {
-            let ident2 = self.ident()?;
+            let ident2 = self.ident().map_err(|mut e|{ e.recoverable = false; e })?;
 
             (ident2, Some(ident))
         } else {
@@ -159,9 +167,12 @@ impl crate::parser::parser::Parser {
         };
 
         let index_exp = if match_tok!(self, TokenKind::SquareOpen) {
-            let exp = self.expression()?;
+            let exp = self.expression();
+            if let Err(_e) = exp {
+                return Err(ParsingError::from_token(PEK::Expected(PP::Expression), self.current_id(), false)); 
+            }
             self.consume(TokenKind::SquareClose)?;
-            Some(exp)
+            Some(exp.unwrap())
         } else {
             None
         };
@@ -183,23 +194,7 @@ impl crate::parser::parser::Parser {
             return Ok(exp);
         }
 
-        let binary = self.boolean();
-
-        match binary {
-            Ok(_) => return binary,
-            Err(_e) => {
-                return Err(ParsingError::from_token(
-                    PEK::ExpectedOneOf(vec![
-                        PP::Call,
-                        PP::VariableAccess,
-                        PP::Integer,
-                        PP::Decimal,
-                        PP::StringLiteral,
-                    ]),
-                    self.current_ref()?,
-                ))
-            }
-        }
+        self.boolean()
     }
 }
 
@@ -216,7 +211,7 @@ mod tests {
             fn $name() {
                 let lexed = lex($input).unwrap();
                 println!("Lexed as: {:#?}", lexed);
-                let mut parser = Parser::new(lexed);
+                let mut parser = Parser::new(&lexed);
                 let expr = parser.expression().unwrap();
 
                 println!("Parsed as: {:?}", expr);
@@ -262,7 +257,7 @@ mod tests {
             params: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -282,7 +277,7 @@ mod tests {
             params: vec![Expression::Int(3)],
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -305,7 +300,7 @@ mod tests {
             ],
         };
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -322,7 +317,7 @@ mod tests {
         let lexed = lex(b"foo");
         let expected = VarAccess::new(Identifier::new(b"foo"), None, None);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -339,7 +334,7 @@ mod tests {
         let lexed = lex(b"foo.bar");
         let expected = VarAccess::new(Identifier::new(b"foo"), Some(Identifier::new(b"bar")), None);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -356,7 +351,7 @@ mod tests {
         let lexed = lex(b"foo[3]");
         let expected = VarAccess::new(Identifier::new(b"foo"), None, Some(Expression::Int(3)));
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -377,7 +372,7 @@ mod tests {
             Some(Expression::Int(3)),
         );
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.expression().unwrap();
 
         match actual {
@@ -388,4 +383,54 @@ mod tests {
             }
         }
     }
+// TODO fix tests
+//     #[test]
+//     fn empty_array_index() {
+//         let lexed = lex(b"foo[]");
+//         let expected = ParsingError::from_span(PEK::Expected(PP::Expression), (4,5), false);
+//         let mut parser = Parser::new(&lexed.unwrap());
+//         let actual = parser.expression().unwrap_err();
+
+//         assert_eq!(expected, actual);
+//     }
+    
+//     #[test]
+//     fn missing_member() {
+//         let lexed = lex(b"foo.");
+//         let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Identifier(vec![])), (4,4), false);
+//         let mut parser = Parser::new(&lexed.unwrap());
+//         let actual = parser.expression().unwrap_err();
+
+//         assert_eq!(expected, actual);
+//     }
+
+//     #[test]
+//     fn missing_paren() {
+//         let lexed = lex(b"3+(4");
+//         let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::ParenClose), (4,4), false);
+//         let mut parser = Parser::new(&lexed.unwrap());
+//         let actual = parser.expression().unwrap_err();
+
+//         assert_eq!(expected, actual);
+//     }
+
+//     #[test]
+//     fn empty_paren() {
+//         let lexed = lex(b"3+()");
+//         let expected = ParsingError::from_span(PEK::Expected(PP::Expression), (3,4), false);
+//         let mut parser = Parser::new(&lexed.unwrap());
+//         let actual = parser.expression().unwrap_err();
+
+//         assert_eq!(expected, actual);
+//     }
+
+//     #[test]
+//     fn double_operator() {
+//         let lexed = lex(b"3**4");
+//         let expected = ParsingError::from_span(PEK::ExpectedOneOf(vec![PP::Call, PP::VariableAccess, PP::Integer, PP::Decimal]), (2,3), false);
+//         let mut parser = Parser::new(&lexed.unwrap());
+//         let actual = parser.expression().unwrap_err();
+
+//         assert_eq!(expected, actual);
+//     }
 }

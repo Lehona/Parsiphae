@@ -1,16 +1,5 @@
-use crate::inner_errors::ParserError;
 use crate::types::PrintableByteVec;
-use nom::types::CompleteByteSlice;
-use nom::IResult;
 use std::fmt::Debug;
-
-pub type Input<'a> = CompleteByteSlice<'a>;
-#[allow(non_snake_case)]
-pub fn Input<'a>(input: &'a [u8]) -> Input<'a> {
-    CompleteByteSlice(input)
-}
-
-pub type PResult<'a, O> = IResult<Input<'a>, O, ParserError>;
 
 #[derive(Clone, PartialEq)]
 pub struct StringLiteral {

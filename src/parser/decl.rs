@@ -11,6 +11,7 @@ impl crate::parser::parser::Parser {
     pub fn var_decl(&mut self) -> Result<Vec<VarDeclaration>> {
         let mut decls = Vec::new();
         decls.push(self.single_var_decl()?);
+        self.save_progress();
 
         while match_tok!(self, TokenKind::Comma) {
             if self.check(TokenKind::Var) {
@@ -25,7 +26,9 @@ impl crate::parser::parser::Parser {
                     next_name,
                     next_size_decl,
                 ));
+
             }
+            self.save_progress();
         }
 
         Ok(decls)
@@ -43,7 +46,8 @@ impl crate::parser::parser::Parser {
         } else {
             return Err(ParsingError::from_token(
                 PEK::ExpectedToken(TokenKind::SquareOpen),
-                self.current_ref()?,
+                self.current_id(),
+                true,
             ));
         };
 
@@ -100,7 +104,8 @@ impl crate::parser::parser::Parser {
 
         return Err(ParsingError::from_token(
             PEK::ExpectedOneOfToken(vec![TokenKind::SquareOpen, TokenKind::Assign]),
-            self.current_ref()?,
+            self.current_id(),
+            true,
         ));
     }
 
@@ -157,7 +162,8 @@ impl crate::parser::parser::Parser {
                     TokenKind::Prototype,
                     TokenKind::Class,
                 ]),
-                self.current_ref()?,
+                self.current_id(),
+                false,
             ));
         };
 
@@ -181,7 +187,7 @@ mod tests {
             None,
         )];
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.var_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -192,7 +198,7 @@ mod tests {
         let lexed = lex(b"var int foo");
         let expected = VarDeclaration::new(Identifier::new(b"int"), Identifier::new(b"foo"), None);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.single_var_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -202,7 +208,7 @@ mod tests {
         let lexed = lex(b"[13]");
         let expected = ArraySizeDeclaration::Size(13);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.array_size_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -213,7 +219,7 @@ mod tests {
         let lexed = lex(b"[MAX]");
         let expected = ArraySizeDeclaration::Identifier(Identifier::new(b"MAX"));
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.array_size_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -224,7 +230,7 @@ mod tests {
         let init = Expression::Int(5);
         let decl = ConstDeclaration::new(Identifier::new(b"int"), Identifier::new(b"foo"), init);
         let lexed = lex(b"const int foo = 5").unwrap();
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
 
         assert_eq!(Statement::ConstDeclaration(decl), actual);
@@ -235,7 +241,7 @@ mod tests {
         let init = Expression::Int(14);
         let decl = ConstDeclaration::new(Identifier::new(b"int"), Identifier::new(b"foo"), init);
         let lexed = lex(b"CONST int foo= 14").unwrap();
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
 
         assert_eq!(Statement::ConstDeclaration(decl), actual);
@@ -246,7 +252,7 @@ mod tests {
         let init = Expression::Unary(Box::new(UnaryExpression::new(b'!', Expression::Int(5))));
         let decl = ConstDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"foo"), init);
         let lexed = lex(b"CONST zCVob foo = !5").unwrap();
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstDeclaration(decl), actual);
     }
@@ -267,7 +273,7 @@ mod tests {
         );
 
         let lexed = lex(b"const int foo [ 3 ] = {5,6,+12}").unwrap();
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstArrayDeclaration(decl), actual);
     }
@@ -288,7 +294,7 @@ mod tests {
         );
 
         let lexed = lex(b"const int foo [ MAX_SIZE ] = {5, 6, +12}").unwrap();
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstArrayDeclaration(decl), actual);
     }
@@ -309,7 +315,7 @@ mod tests {
         );
 
         let lexed = lex(b"const int foo[ MAX_SIZE ] = {\"hello\", 6.0, +12}").unwrap();
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstArrayDeclaration(decl), actual);
     }
@@ -326,7 +332,7 @@ mod tests {
             )],
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.class_decl().unwrap();
         assert_eq!(expected, actual);
     }
@@ -338,8 +344,38 @@ mod tests {
             members: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.class_decl().unwrap();
         assert_eq!(expected, actual);
     }
+
+    // #[test]
+    // fn error_in_class() {
+    //     let lexed = lex(b"class foo { foo foo foo }");
+    //     let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Var), (12,15), true);
+    //     let mut parser = Parser::new(&lexed.unwrap());
+    //     let actual = parser.class_decl().unwrap_err();
+
+    //     assert_eq!(expected, actual);
+    // }
+
+    // #[test]
+    // fn incomplete_var_decl_in_class() {
+    //     let lexed = lex(b"class foo { var foo }");
+    //     let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Identifier(vec![])), (20,21), true);
+    //     let mut parser = Parser::new(&lexed.unwrap());
+    //     let actual = parser.class_decl().unwrap_err();
+
+    //     assert_eq!(expected, actual);
+    // }
+
+    // #[test]
+    // fn incomplete_func_decl() {
+    //     let lexed = lex(b"func void () {}");
+    //     let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Identifier(vec![])), (10,11), true);
+    //     let mut parser = Parser::new(&lexed.unwrap());
+    //     let actual = parser.func_decl().unwrap_err();
+
+    //     assert_eq!(expected, actual);
+    // }
 }

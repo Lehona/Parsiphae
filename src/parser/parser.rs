@@ -4,16 +4,17 @@ use crate::types::Declaration;
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    progress: usize,
 }
 
 impl Parser {
-    pub fn new(mut tokens: Vec<Token>) -> Self {
-        tokens.retain(|tok| match tok.kind {
+    pub fn new(tokens: &[Token]) -> Self {
+        let tokens = tokens.iter().filter(|tok| match tok.kind {
             TokenKind::Comment(_) => false,
             _ => true,
-        });
+        }).cloned().collect();
 
-        Parser { tokens, current: 0 }
+        Parser { tokens, current: 0, progress: 0 }
     }
 
     pub fn start(&mut self) -> Result<Vec<Declaration>> {
@@ -28,6 +29,14 @@ impl Parser {
         Ok(decls)
     }
 
+    pub fn save_progress(&mut self) {
+        self.progress = self.current;
+    }
+
+    pub fn progress(&self) -> usize {
+        self.progress
+    }
+
     pub fn advance(&mut self) {
         self.current += 1;
     }
@@ -36,11 +45,16 @@ impl Parser {
         self.tokens[self.current].kind == t
     }
 
+    pub fn current_id(&self) -> usize {
+        self.current
+    }
+
     pub fn current(&mut self) -> Result<Token> {
         if self.current >= self.tokens.len() {
             return Err(ParsingError::from_token(
                 PEK::ReachedEOF,
-                self.tokens.last().expect("There's always EOF"),
+                self.tokens.len()-1,
+                false,
             ));
         }
 
@@ -51,7 +65,8 @@ impl Parser {
         if self.current >= self.tokens.len() {
             return Err(ParsingError::from_token(
                 PEK::ReachedEOF,
-                self.tokens.last().expect("There's always EOF"),
+                self.tokens.len()-1,
+                false,
             ));
         }
 
@@ -67,11 +82,11 @@ impl Parser {
     }
 
     pub fn consume(&mut self, token: TokenKind) -> Result<()> {
-        if self.check(token) {
+        if self.check(token.clone()) {
             self.advance();
+            self.save_progress();
         } else {
-            // TODO Select Error Kind based upon expected token
-            return Err(ParsingError::from_token(PEK::Failure, self.current_ref()?));
+            return Err(ParsingError::from_token(PEK::ExpectedToken(token), self.current, true));
         }
         Ok(())
     }
@@ -85,7 +100,8 @@ impl Parser {
             // TODO unlikely to happen but find a better error message
             return Err(ParsingError::from_token(
                 PEK::ReachedEOF,
-                self.tokens.last().expect("There's always EOF"),
+                self.tokens.len()-1,
+                false,
             ));
         }
 

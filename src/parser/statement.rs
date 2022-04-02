@@ -19,13 +19,16 @@ impl crate::parser::parser::Parser {
             } else if self.check(TokenKind::Return) {
                 return Ok(self.return_statement()?);
             } else {
+                // TODO: Add handling of recoverability
                 match self.assignment() {
                     Ok(ass) => return Ok(Statement::Ass(ass)),
+                    Err(e) if !e.recoverable => return Err(e),
                     _ => self.restore(ice),
                 }
 
                 match self.expression() {
                     Ok(exp) => return Ok(Statement::Exp(exp)),
+                    Err(e) if !e.recoverable => return Err(e),
                     _ => self.restore(ice),
                 }
                 return Err(ParsingError::from_token(
@@ -35,22 +38,27 @@ impl crate::parser::parser::Parser {
                         PP::Expression,
                         PP::Declaration,
                     ]),
-                    self.current_ref()?,
+                    self.current_id(),
+                    false,
                 ));
             }
         })()?;
 
-        self.consume(TokenKind::Semicolon)?;
+        if let Err(_e) = self.consume(TokenKind::Semicolon) {
+            return Err(ParsingError::from_token(PEK::StatementWithoutSemicolon, self.current_id(), false));
+        };
 
         Ok(stmt)
     }
 
     pub fn block(&mut self) -> Result<Vec<Statement>> {
         self.consume(TokenKind::BracketOpen)?;
+        self.save_progress();
         let mut body = Vec::new();
 
         while !match_tok!(self, TokenKind::BracketClose) {
             body.push(self.statement()?);
+            self.save_progress();
         }
 
         Ok(body)
@@ -118,7 +126,8 @@ impl crate::parser::parser::Parser {
                     TokenKind::DivideAssign,
                     TokenKind::MultiplyAssign,
                 ]),
-                self.current_ref()?,
+                self.current_id(),
+                true,
             ));
         }
     }
@@ -171,7 +180,7 @@ mod tests {
             body: Vec::new(),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().branches[0];
 
         assert_eq!(&expected, actual);
@@ -186,7 +195,7 @@ mod tests {
             body: vec![Statement::Exp(Expression::Int(5))],
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().branches[0];
 
         assert_eq!(&expected, actual);
@@ -213,7 +222,7 @@ mod tests {
             body: vec![Statement::Exp(Expression::Int(5))],
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().branches[0];
 
         assert_eq!(&expected, actual);
@@ -232,7 +241,7 @@ mod tests {
             ],
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().branches[0];
 
         assert_eq!(&expected, actual);
@@ -243,7 +252,7 @@ mod tests {
         let lexed = lex(b"if 0 {} else{}").unwrap();
         let expected: Vec<Statement> = Vec::new();
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().else_branch.unwrap();
 
         assert_eq!(&expected, actual);
@@ -254,7 +263,7 @@ mod tests {
         let lexed = lex(b"if 0 {} else {5;}").unwrap();
         let expected: Vec<Statement> = vec![Statement::Exp(Expression::Int(5))];
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().else_branch.unwrap();
 
         assert_eq!(&expected, actual);
@@ -272,7 +281,7 @@ mod tests {
             else_branch: Some(Vec::new()),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap();
 
         assert_eq!(&expected, actual);
@@ -296,7 +305,7 @@ mod tests {
             else_branch: None,
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap();
 
         assert_eq!(&expected, actual);
@@ -320,7 +329,7 @@ mod tests {
             else_branch: Some(Vec::new()),
         };
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap();
 
         assert_eq!(&expected, actual);
@@ -334,7 +343,7 @@ mod tests {
             op: AssignmentOperator::Eq,
             exp: Expression::Int(3),
         };
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
 
         assert_eq!(expected, actual);
@@ -348,7 +357,7 @@ mod tests {
             op: AssignmentOperator::Eq,
             exp: Expression::Int(3),
         };
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
 
         assert_eq!(expected, actual);
@@ -362,7 +371,7 @@ mod tests {
             op: AssignmentOperator::DivideEq,
             exp: Expression::Int(3),
         };
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
 
         assert_eq!(expected, actual);
@@ -376,7 +385,7 @@ mod tests {
             op: AssignmentOperator::DivideEq,
             exp: Expression::Int(3),
         };
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
 
         assert_eq!(expected, actual);
@@ -390,7 +399,7 @@ mod tests {
             op: AssignmentOperator::DivideEq,
             exp: Expression::Int(3),
         });
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
@@ -414,7 +423,7 @@ mod tests {
             else_branch: Some(Vec::new()),
         }));
 
-        let mut parser = Parser::new(lexed);
+        let mut parser = Parser::new(&lexed);
         let actual = &parser.statement().unwrap();
 
         assert_eq!(&expected, actual);
@@ -428,7 +437,7 @@ mod tests {
             VarDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"bar"), None),
         ]);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
@@ -446,7 +455,7 @@ mod tests {
             VarDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"bar"), None),
         ]);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
@@ -466,7 +475,7 @@ mod tests {
             VarDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"bar"), None),
         ];
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.var_decl().unwrap();
 
         assert_eq!(expected, actual);
@@ -488,7 +497,7 @@ mod tests {
             ),
         ]);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
@@ -499,7 +508,7 @@ mod tests {
         let lexed = lex(b"return;");
         let expected = Statement::ReturnStatement(None);
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
@@ -510,7 +519,7 @@ mod tests {
         let lexed = lex(b"return 3;");
         let expected = Statement::ReturnStatement(Some(Expression::Int(3)));
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
@@ -525,9 +534,10 @@ mod tests {
             None,
         ))));
 
-        let mut parser = Parser::new(lexed.unwrap());
+        let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
 
         assert_eq!(expected, actual);
     }
+
 }

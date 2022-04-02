@@ -7,7 +7,7 @@ mod symbol;
 
 pub use self::printable::{PrintableByteSlice, PrintableByteVec};
 
-pub use self::base::{Identifier, Input, PResult, StringLiteral};
+pub use self::base::{Identifier, StringLiteral};
 pub use self::exp::{
     BinaryExpression, BinaryOperator, Call, Expression, UnaryExpression, UnaryOperator, VarAccess,
 };
