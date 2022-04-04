@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use crate::lexer::Token;
+use std::path::PathBuf;
 
 pub struct FileDb {
     files: Vec<File>,
@@ -41,15 +41,22 @@ impl<'a> codespan_reporting::files::Files<'a> for FileDb {
         return Ok(String::from_utf8_lossy(&self.files[id].content).to_string());
     }
 
-    fn line_index(&self, id: Self::FileId, byte_index: usize) -> Result<usize, codespan_reporting::files::Error> {
-        Ok(self
-            .files[id]
+    fn line_index(
+        &self,
+        id: Self::FileId,
+        byte_index: usize,
+    ) -> Result<usize, codespan_reporting::files::Error> {
+        Ok(self.files[id]
             .line_starts
             .binary_search(&byte_index)
             .unwrap_or_else(|next_line| next_line - 1))
     }
 
-    fn line_range(&self, id: Self::FileId, line_index: usize) -> Result<std::ops::Range<usize>, codespan_reporting::files::Error> {
+    fn line_range(
+        &self,
+        id: Self::FileId,
+        line_index: usize,
+    ) -> Result<std::ops::Range<usize>, codespan_reporting::files::Error> {
         let line_start = self.files[id].line_start(line_index)?;
         let next_line_start = self.files[id].line_start(line_index + 1)?;
 
@@ -70,18 +77,20 @@ impl File {
         let source = String::from_utf8_lossy(&content).to_string();
         let line_starts = codespan_reporting::files::line_starts(&source).collect();
 
-        File { path, content, source, tokens, line_starts }
+        File {
+            path,
+            content,
+            source,
+            tokens,
+            line_starts,
+        }
     }
 
     fn line_start(&self, line_index: usize) -> Result<usize, codespan_reporting::files::Error> {
         use std::cmp::Ordering;
 
         match line_index.cmp(&self.line_starts.len()) {
-            Ordering::Less => Ok(self
-                .line_starts
-                .get(line_index)
-                .copied()
-                .unwrap()),
+            Ordering::Less => Ok(self.line_starts.get(line_index).copied().unwrap()),
             Ordering::Equal => Ok(self.source.len()),
             Ordering::Greater => Err(codespan_reporting::files::Error::LineTooLarge {
                 given: line_index,

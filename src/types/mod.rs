@@ -9,7 +9,8 @@ pub use self::printable::{PrintableByteSlice, PrintableByteVec};
 
 pub use self::base::{Identifier, StringLiteral};
 pub use self::exp::{
-    BinaryExpression, BinaryOperator, Call, Expression, UnaryExpression, UnaryOperator, VarAccess,
+    BinaryExpression, BinaryOperator, Call, Expression, FloatNode, IntNode, UnaryExpression,
+    UnaryOperator, VarAccess,
 };
 
 pub use self::decl::{
@@ -17,7 +18,7 @@ pub use self::decl::{
     Declaration, Function, Instance, Prototype, VarDeclaration,
 };
 
-pub use self::statement::{Assignment, AssignmentOperator, IfBranch, IfStatement, Statement};
+pub use self::statement::{Assignment, AssignmentOperator, IfBranch, IfStatement, Statement, ReturnStatement};
 
 pub use self::symbol::parsed;
 pub use self::symbol::SymbolCollection;

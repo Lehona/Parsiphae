@@ -7,11 +7,11 @@ extern crate glob;
 #[macro_use]
 extern crate derive_more;
 
-pub mod file;
-pub mod errors;
-pub mod parser;
 pub mod error_handler;
+pub mod errors;
+pub mod file;
 pub mod lexer;
+pub mod parser;
 pub mod ppa;
 pub mod processor;
 pub mod src_parser;

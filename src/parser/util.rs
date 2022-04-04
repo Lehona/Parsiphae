@@ -38,11 +38,13 @@ macro_rules! binary_parser {
                 $self.save_progress();
                 let op = $self.previous()?.kind;
                 let right = $self.$next().map_err(|mut e| { e.recoverable = false; e })?;
+                let span = (expr.get_span().0, right.get_span().1);
 
                 expr = crate::types::Expression::Binary(Box::new(crate::types::BinaryExpression::new(
                                         crate::types::BinaryOperator::try_from(op).map_err(|_| ParsingError::internal_error())?,
                                         expr,
                                         right,
+                                        span,
                                     )));
             }
 

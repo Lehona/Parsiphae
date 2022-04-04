@@ -1,8 +1,8 @@
+use crate::lexer::TokenKind;
 use crate::parser::errors::{
     ParsePossibility as PP, ParsingError, ParsingErrorKind as PEK, Result,
 };
-use crate::lexer::TokenKind;
-use crate::types::{Assignment, IfBranch, IfStatement, Statement, VarDeclaration};
+use crate::types::{Assignment, IfBranch, IfStatement, Statement, VarDeclaration, ReturnStatement};
 use std::convert::TryInto;
 
 impl crate::parser::parser::Parser {
@@ -45,7 +45,11 @@ impl crate::parser::parser::Parser {
         })()?;
 
         if let Err(_e) = self.consume(TokenKind::Semicolon) {
-            return Err(ParsingError::from_token(PEK::StatementWithoutSemicolon, self.current_id(), false));
+            return Err(ParsingError::from_token(
+                PEK::StatementWithoutSemicolon,
+                self.current_id(),
+                false,
+            ));
         };
 
         Ok(stmt)
@@ -66,24 +70,30 @@ impl crate::parser::parser::Parser {
 
     pub fn if_statement(&mut self) -> Result<IfStatement> {
         self.consume(TokenKind::If)?;
+        let if_begin = self.previous()?.span.0;
 
         let condition = self.expression()?;
         let body = self.block()?;
+        let body_end =  self.previous()?.span.1;
 
         let mut branches = vec![IfBranch {
             cond: condition,
             body,
+            span: (if_begin, body_end),
         }];
         let mut else_branch = None;
 
         while match_tok!(self, TokenKind::Else) {
+            let else_begin = self.previous()?.span.0;
             if match_tok!(self, TokenKind::If) {
                 let condition2 = self.expression()?;
                 let body2 = self.block()?;
+                let body_end = self.previous()?.span.0;
 
                 branches.push(IfBranch {
                     cond: condition2,
                     body: body2,
+                    span: (else_begin, body_end),
                 });
             } else {
                 else_branch = Some(self.block()?);
@@ -91,9 +101,11 @@ impl crate::parser::parser::Parser {
             }
         }
 
+        let if_end = self.previous()?.span.1;
         let stmt = IfStatement {
             branches,
             else_branch,
+            span: (if_begin, if_end),
         };
         Ok(stmt)
     }
@@ -112,10 +124,12 @@ impl crate::parser::parser::Parser {
             let op = self.previous()?.kind;
             let exp = self.expression()?;
 
+            let span = (left_side.span.0, exp.get_span().1);
             Ok(Assignment {
                 var: left_side,
                 op: op.try_into().unwrap(), // TODO: fix unwrap
                 exp,
+                span,
             })
         } else {
             return Err(ParsingError::from_token(
@@ -149,6 +163,7 @@ impl crate::parser::parser::Parser {
     }
 
     pub fn return_statement(&mut self) -> Result<Statement> {
+        let start = self.span_start()?;
         self.consume(TokenKind::Return)?;
 
         let exp = if !self.check(TokenKind::Semicolon) {
@@ -157,18 +172,19 @@ impl crate::parser::parser::Parser {
             None
         };
 
-        Ok(Statement::ReturnStatement(exp))
+        let end = self.span_end()?;
+        Ok(Statement::ReturnStatement(ReturnStatement { exp, span: (start, end)}))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::parser::Parser;
     use crate::lexer::lex;
+    use crate::parser::parser::Parser;
     use crate::types::{
         ArraySizeDeclaration, AssignmentOperator, BinaryExpression, BinaryOperator, Call,
-        Expression, Identifier, Statement, VarAccess,
+        Expression, Identifier, Statement, VarAccess, IntNode,
     };
 
     #[test]
@@ -176,8 +192,9 @@ mod tests {
         let lexed = lex(b"if (3) {}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
-            cond: Expression::Int(3),
+            cond: Expression::Int(IntNode { value: 3, span: (4, 5)}),
             body: Vec::new(),
+            span: (0, 9),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -191,8 +208,9 @@ mod tests {
         let lexed = lex(b"if (3) {5;}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
-            cond: Expression::Int(3),
-            body: vec![Statement::Exp(Expression::Int(5))],
+            cond: Expression::Int(IntNode { value: 3, span: (4, 5)}),
+            body: vec![Statement::Exp(Expression::Int(IntNode { value: 5, span: (8, 9)}))],
+            span: (0, 11),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -207,19 +225,22 @@ mod tests {
         let cond = Expression::Binary(Box::new(BinaryExpression::new(
             BinaryOperator::Or,
             Expression::Call(Box::new(Call {
-                func: Identifier::new(b"foo"),
+                func: Identifier::new(b"foo", (4, 7)),
                 params: Vec::new(),
+                span: (4, 9),
             })),
             Expression::Call(Box::new(Call {
-                func: Identifier::new(b"bar"),
+                func: Identifier::new(b"bar", (11, 14)),
                 params: Vec::new(),
+                span: (11, 16),
             })),
+            (4, 16),
         )));
 
-        println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
             cond,
-            body: vec![Statement::Exp(Expression::Int(5))],
+            body: vec![Statement::Exp(Expression::Int(IntNode { value: 5, span: (19, 20)}))],
+            span: (0, 22),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -233,12 +254,13 @@ mod tests {
         let lexed = lex(b"if (3) {5;3;6;}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
-            cond: Expression::Int(3),
+            cond: Expression::Int(IntNode { value: 3, span: (4, 5)}),
             body: vec![
-                Statement::Exp(Expression::Int(5)),
-                Statement::Exp(Expression::Int(3)),
-                Statement::Exp(Expression::Int(6)),
+                Statement::Exp(Expression::Int(IntNode { value: 5, span: (8, 9)})),
+                Statement::Exp(Expression::Int(IntNode { value: 3, span: (10, 11)})),
+                Statement::Exp(Expression::Int(IntNode { value: 6, span: (12, 13)})),
             ],
+            span: (0, 15),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -261,7 +283,7 @@ mod tests {
     #[test]
     fn else_branch_single_statement() {
         let lexed = lex(b"if 0 {} else {5;}").unwrap();
-        let expected: Vec<Statement> = vec![Statement::Exp(Expression::Int(5))];
+        let expected: Vec<Statement> = vec![Statement::Exp(Expression::Int(IntNode { value: 5, span: (14, 15)}))];
 
         let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().else_branch.unwrap();
@@ -275,10 +297,12 @@ mod tests {
         println!("Lexed as: {:#?}", lexed);
         let expected = IfStatement {
             branches: vec![IfBranch {
-                cond: Expression::Int(3),
+                cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
                 body: Vec::new(),
+                span: (0, 7),
             }],
             else_branch: Some(Vec::new()),
+            span: (0, 15),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -294,15 +318,18 @@ mod tests {
         let expected = IfStatement {
             branches: vec![
                 IfBranch {
-                    cond: Expression::Int(3),
+                    cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
                     body: Vec::new(),
+                    span: (0, 7)
                 },
                 IfBranch {
-                    cond: Expression::Int(2),
+                    cond: Expression::Int(IntNode { value: 2, span: (17, 18)}),
                     body: Vec::new(),
+                    span: (8, 21),
                 },
             ],
             else_branch: None,
+            span: (0, 22),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -314,19 +341,21 @@ mod tests {
     #[test]
     fn double_if_else() {
         let lexed = lex(b"if(3){} else if (2) {} else {}").unwrap();
-        println!("Lexed as: {:#?}", lexed);
         let expected = IfStatement {
             branches: vec![
                 IfBranch {
-                    cond: Expression::Int(3),
+                    cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
                     body: Vec::new(),
+                    span: (0, 7)
                 },
                 IfBranch {
-                    cond: Expression::Int(2),
+                    cond: Expression::Int(IntNode { value: 2, span: (17, 18)}),
                     body: Vec::new(),
+                    span: (8, 21),
                 },
             ],
             else_branch: Some(Vec::new()),
+            span: (0, 30),
         };
 
         let mut parser = Parser::new(&lexed);
@@ -339,9 +368,10 @@ mod tests {
     fn simple_eq_int() {
         let lexed = lex(b"foo=3").unwrap();
         let expected = Assignment {
-            var: VarAccess::new(Identifier::new(b"foo"), None, None),
+            var: VarAccess::new(Identifier::new(b"foo", (0, 3)), None, None, (0, 3)),
             op: AssignmentOperator::Eq,
-            exp: Expression::Int(3),
+            exp: Expression::Int(IntNode { value: 3, span: (4, 5)}),
+            span: (0, 5),
         };
         let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
@@ -353,9 +383,15 @@ mod tests {
     fn instance_eq_int() {
         let lexed = lex(b"foo.bar=3").unwrap();
         let expected = Assignment {
-            var: VarAccess::new(Identifier::new(b"foo"), Some(Identifier::new(b"bar")), None),
+            var: VarAccess::new(
+                Identifier::new(b"foo", (0, 3)),
+                Some(Identifier::new(b"bar", (4, 7))),
+                None,
+                (0, 7),
+            ),
             op: AssignmentOperator::Eq,
-            exp: Expression::Int(3),
+            exp: Expression::Int(IntNode { value: 3, span: (8, 9)}),
+            span: (0, 9),
         };
         let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
@@ -367,9 +403,15 @@ mod tests {
     fn instance_diveq_int() {
         let lexed = lex(b"foo.bar/=3").unwrap();
         let expected = Assignment {
-            var: VarAccess::new(Identifier::new(b"foo"), Some(Identifier::new(b"bar")), None),
+            var: VarAccess::new(
+                Identifier::new(b"foo", (0, 3)),
+                Some(Identifier::new(b"bar", (4, 7))),
+                None,
+                (0, 7),
+            ),
             op: AssignmentOperator::DivideEq,
-            exp: Expression::Int(3),
+            exp: Expression::Int(IntNode { value: 3, span: (9, 10)}),
+            span: (0, 10),
         };
         let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
@@ -381,9 +423,15 @@ mod tests {
     fn array_assign() {
         let lexed = lex(b"foo[0]/=3").unwrap();
         let expected = Assignment {
-            var: VarAccess::new(Identifier::new(b"foo"), None, Some(Expression::Int(0))),
+            var: VarAccess::new(
+                Identifier::new(b"foo", (0, 3)),
+                None,
+                Some(Expression::Int(IntNode { value: 0, span: (4, 5)})),
+                (0, 6),
+            ),
             op: AssignmentOperator::DivideEq,
-            exp: Expression::Int(3),
+            exp: Expression::Int(IntNode { value: 3, span: (8, 9)}),
+            span: (0, 9),
         };
         let mut parser = Parser::new(&lexed);
         let actual = parser.assignment().unwrap();
@@ -395,9 +443,15 @@ mod tests {
     fn array_assign_stmt() {
         let lexed = lex(b"foo[0]/=3;").unwrap();
         let expected = Statement::Ass(Assignment {
-            var: VarAccess::new(Identifier::new(b"foo"), None, Some(Expression::Int(0))),
+            var: VarAccess::new(
+                Identifier::new(b"foo", (0, 3)),
+                None,
+                Some(Expression::Int(IntNode { value: 0, span: (4, 5)})),
+                (0, 6),
+            ),
             op: AssignmentOperator::DivideEq,
-            exp: Expression::Int(3),
+            exp: Expression::Int(IntNode { value: 3, span: (8, 9)}),
+            span: (0, 9),
         });
         let mut parser = Parser::new(&lexed);
         let actual = parser.statement().unwrap();
@@ -412,15 +466,18 @@ mod tests {
         let expected = Statement::If(Box::new(IfStatement {
             branches: vec![
                 IfBranch {
-                    cond: Expression::Int(3),
+                    cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
                     body: Vec::new(),
+                    span: (0, 7),
                 },
                 IfBranch {
-                    cond: Expression::Int(2),
+                    cond: Expression::Int(IntNode { value: 2, span: (17, 18)}),
                     body: Vec::new(),
+                    span: (8, 21),
                 },
             ],
             else_branch: Some(Vec::new()),
+            span: (0, 30),
         }));
 
         let mut parser = Parser::new(&lexed);
@@ -433,8 +490,18 @@ mod tests {
     fn multi_var_decl() {
         let lexed = lex(b"var int foo, var zCVob bar;");
         let expected = Statement::VarDeclarations(vec![
-            VarDeclaration::new(Identifier::new(b"int"), Identifier::new(b"foo"), None),
-            VarDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"bar"), None),
+            VarDeclaration::new(
+                Identifier::new(b"int", (4, 7)),
+                Identifier::new(b"foo", (8, 11)),
+                None,
+                (0, 12),
+            ),
+            VarDeclaration::new(
+                Identifier::new(b"zCVob", (17, 22)),
+                Identifier::new(b"bar", (23, 26)),
+                None,
+                (13, 27),
+            ),
         ]);
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -448,11 +515,17 @@ mod tests {
         let lexed = lex(b"var int foo[3], var zCVob bar;");
         let expected = Statement::VarDeclarations(vec![
             VarDeclaration::new(
-                Identifier::new(b"int"),
-                Identifier::new(b"foo"),
+                Identifier::new(b"int", (4, 7)),
+                Identifier::new(b"foo", (8, 11)),
                 Some(ArraySizeDeclaration::Size(3)),
+                (0, 15),
             ),
-            VarDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"bar"), None),
+            VarDeclaration::new(
+                Identifier::new(b"zCVob", (20, 25)),
+                Identifier::new(b"bar", (26, 29)),
+                None,
+                (16, 30),
+            ),
         ]);
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -468,11 +541,17 @@ mod tests {
         let lexed = lex(b"var int foo[3], vAr zCVob bar;");
         let expected = vec![
             VarDeclaration::new(
-                Identifier::new(b"int"),
-                Identifier::new(b"foo"),
+                Identifier::new(b"int", (4, 7)),
+                Identifier::new(b"foo", (8, 11)),
                 Some(ArraySizeDeclaration::Size(3)),
+                (0, 15),
             ),
-            VarDeclaration::new(Identifier::new(b"zCVob"), Identifier::new(b"bar"), None),
+            VarDeclaration::new(
+                Identifier::new(b"zCVob", (20, 25)),
+                Identifier::new(b"bar", (26, 29)),
+                None,
+                (16, 30),
+            ),
         ];
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -486,14 +565,19 @@ mod tests {
         let lexed = lex(b"var int foo[3], var zCVob bar [MAX];");
         let expected = Statement::VarDeclarations(vec![
             VarDeclaration::new(
-                Identifier::new(b"int"),
-                Identifier::new(b"foo"),
+                Identifier::new(b"int", (4, 7)),
+                Identifier::new(b"foo", (8, 11)),
                 Some(ArraySizeDeclaration::Size(3)),
+                (0, 15),
             ),
             VarDeclaration::new(
-                Identifier::new(b"zCVob"),
-                Identifier::new(b"bar"),
-                Some(ArraySizeDeclaration::Identifier(Identifier::new(b"MAX"))),
+                Identifier::new(b"zCVob", (20, 25)),
+                Identifier::new(b"bar", (26, 29)),
+                Some(ArraySizeDeclaration::Identifier(Identifier::new(
+                    b"MAX",
+                    (31, 34),
+                ))),
+                (16, 36),
             ),
         ]);
 
@@ -506,7 +590,7 @@ mod tests {
     #[test]
     fn void_return() {
         let lexed = lex(b"return;");
-        let expected = Statement::ReturnStatement(None);
+        let expected = Statement::ReturnStatement(ReturnStatement { exp: None, span: (0, 7)});
 
         let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
@@ -517,7 +601,7 @@ mod tests {
     #[test]
     fn int_return() {
         let lexed = lex(b"return 3;");
-        let expected = Statement::ReturnStatement(Some(Expression::Int(3)));
+        let expected = Statement::ReturnStatement(ReturnStatement { exp: Some(Expression::Int(IntNode { value: 3, span: (7, 8)})), span: (0, 9)});
 
         let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
@@ -529,9 +613,10 @@ mod tests {
     fn return_identifier() {
         let lexed = lex(b"returnVar;");
         let expected = Statement::Exp(Expression::Identifier(Box::new(VarAccess::new(
-            Identifier::new(b"returnVar"),
+            Identifier::new(b"returnVar", (0, 9)),
             None,
             None,
+            (0, 9),
         ))));
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -539,5 +624,4 @@ mod tests {
 
         assert_eq!(expected, actual);
     }
-
 }

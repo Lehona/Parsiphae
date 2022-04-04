@@ -5,11 +5,22 @@ pub struct BinaryExpression {
     pub op: BinaryOperator,
     pub left: Expression,
     pub right: Expression,
+    pub span: (usize, usize),
 }
 
 impl BinaryExpression {
-    pub fn new(op: BinaryOperator, left: Expression, right: Expression) -> Self {
-        BinaryExpression { op, left, right }
+    pub fn new(
+        op: BinaryOperator,
+        left: Expression,
+        right: Expression,
+        span: (usize, usize),
+    ) -> Self {
+        BinaryExpression {
+            op,
+            left,
+            right,
+            span,
+        }
     }
 
     pub fn is_constant(&self) -> bool {

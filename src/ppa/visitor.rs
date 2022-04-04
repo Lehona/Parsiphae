@@ -120,8 +120,8 @@ impl<'a, V: VisitorMut + 'a> VisitorMut for VisitorEngine<'a, V> {
             &Statement::ConstArrayDeclaration(ref const_arr_decl) => {
                 self.visit_const_arr_decl(const_arr_decl, Some(scope));
             }
-            &Statement::ReturnStatement(ref opt_exp) => {
-                if let Some(ref exp) = opt_exp {
+            &Statement::ReturnStatement(ref ret) => {
+                if let Some(ref exp) = ret.exp {
                     self.visit_expression(exp, Some(scope))
                 }
             }

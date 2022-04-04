@@ -2,15 +2,21 @@ use crate::ppa::visitor::VisitorMut;
 use crate::types;
 use crate::types::parsed;
 
+use super::errors::{TypecheckError, TypecheckErrorKind as TEK};
+
 type TCResult<T> = Result<T, ()>;
 
 pub struct TypeChecker<'a> {
     parsed_syms: &'a types::SymbolCollection,
+    errors: Vec<TypecheckError>,
 }
 
 impl<'a> TypeChecker<'a> {
     pub fn new(input: &'a types::SymbolCollection) -> Self {
-        TypeChecker { parsed_syms: input }
+        TypeChecker {
+            parsed_syms: input,
+            errors: Vec::new(),
+        }
     }
 
     pub fn typecheck(&mut self) {
@@ -161,6 +167,10 @@ impl<'a> VisitorMut for TypeChecker<'a> {
         let typ = &decl.typ;
 
         if !self.is_type(typ) {
+            let err = TypecheckError {
+                kind: TEK::UnknownReturnType(decl.typ.clone()),
+                span: (0, 0),
+            };
             panic!("Unknown type as return type of function {}", decl.name)
         }
 
@@ -185,15 +195,29 @@ impl<'a> VisitorMut for TypeChecker<'a> {
 #[cfg(test)]
 
 mod tests {
+    use crate::types::{IntNode, FloatNode};
+
     use super::*;
 
     #[test]
     fn exp_single_simple() {
         let exps = [
-            (types::Expression::Int(0), parsed::zPAR_TYPE::Int),
-            (types::Expression::Float(0.0), parsed::zPAR_TYPE::Float),
             (
-                types::Expression::String(types::StringLiteral::new(b"foo")),
+                types::Expression::Int(IntNode {
+                    value: 0,
+                    span: (0, 0),
+                }),
+                parsed::zPAR_TYPE::Int,
+            ),
+            (
+                types::Expression::Float(FloatNode {
+                    value: 0.0,
+                    span: (0, 0),
+                }),
+                parsed::zPAR_TYPE::Float,
+            ),
+            (
+                types::Expression::String(types::StringLiteral::new(b"foo", (0, 0))),
                 parsed::zPAR_TYPE::String,
             ),
         ];
@@ -210,20 +234,22 @@ mod tests {
     fn exp_var() {
         let sc = types::SymbolCollection::new(vec![parsed::Symbol::Var(
             types::VarDeclaration::new(
-                types::Identifier::new(b"bar"),
-                types::Identifier::new(b"foo"),
+                types::Identifier::new(b"bar", (0, 0)),
+                types::Identifier::new(b"foo", (0, 0)),
                 None,
+                (0, 0),
             ),
             None,
         )]);
         let tc = TypeChecker::new(&sc);
 
         let exp = types::Expression::Identifier(Box::new(types::VarAccess::new(
-            types::Identifier::new(b"foo"),
+            types::Identifier::new(b"foo", (0, 0)),
             None,
             None,
+            (0, 0),
         )));
-        let expected = parsed::zPAR_TYPE::Instance(types::Identifier::new(b"bar"));
+        let expected = parsed::zPAR_TYPE::Instance(types::Identifier::new(b"bar", (0, 0)));
         let actual = tc.typecheck_exp(&exp, None).unwrap();
 
         assert_eq!(expected, actual);

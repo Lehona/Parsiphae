@@ -14,6 +14,7 @@ pub struct Assignment {
     pub var: VarAccess,
     pub op: AssignmentOperator,
     pub exp: Expression,
+    pub span: (usize, usize),
 }
 
 impl AssignmentOperator {

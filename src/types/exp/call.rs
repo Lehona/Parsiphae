@@ -4,4 +4,5 @@ use crate::types::{Expression, Identifier};
 pub struct Call {
     pub func: Identifier,
     pub params: Vec<Expression>,
+    pub span: (usize, usize),
 }

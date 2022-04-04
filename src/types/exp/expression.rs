@@ -3,13 +3,25 @@ use crate::types::{BinaryExpression, Call, UnaryExpression, VarAccess};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
-    Int(i64),
-    Float(f32),
+    Int(IntNode),
+    Float(FloatNode),
     Identifier(Box<VarAccess>),
     Binary(Box<BinaryExpression>),
     Unary(Box<UnaryExpression>),
     Call(Box<Call>),
     String(StringLiteral),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IntNode {
+    pub value: i64,
+    pub span: (usize, usize),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FloatNode {
+    pub value: f64,
+    pub span: (usize, usize),
 }
 
 impl Expression {
@@ -20,9 +32,21 @@ impl Expression {
         }
     }
 
+    pub fn get_span(&self) -> (usize, usize) {
+        match self {
+            Expression::Int(i) => i.span,
+            Expression::Float(f) => f.span,
+            Expression::Identifier(i) => i.span,
+            Expression::Binary(b) => b.span,
+            Expression::Unary(u) => u.span,
+            Expression::Call(c) => c.span,
+            Expression::String(s) => s.span,
+        }
+    }
+
     pub fn evaluate_int(&self) -> Result<i64, ()> {
         match *self {
-            Expression::Int(i) => Ok(i),
+            Expression::Int(i) => Ok(i.value),
             Expression::Binary(ref b) => (*b).evaluate(),
             Expression::Unary(ref b) => (*b).evaluate(),
             _ => Err(()),

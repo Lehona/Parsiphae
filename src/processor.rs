@@ -1,5 +1,5 @@
 use crate::error_handler::process_parsing_result;
-use crate::file::{FileDb, File};
+use crate::file::{File, FileDb};
 use crate::ppa::symbol_collector::SymbolCollector;
 use crate::types::SymbolCollection;
 use crate::{errors::*, ppa, src_parser, types};
@@ -14,10 +14,7 @@ pub struct ParsingResult {
 
 impl ParsingResult {
     pub fn new(file_id: usize, result: Result<types::AST>) -> Self {
-        ParsingResult {
-            file_id,
-            result,
-        }
+        ParsingResult { file_id, result }
     }
 
     pub fn print(&self) {
@@ -26,7 +23,10 @@ impl ParsingResult {
             Err(ref e) => match e {
                 Error::ParsingError(_err) => {
                     // let msg = err.description();
-                    eprintln!("Error in file {:?} in line {}: {}", self.file_id, 1337, "kapuuut"); // TODO: fix
+                    eprintln!(
+                        "Error in file {:?} in line {}: {}",
+                        self.file_id, 1337, "kapuuut"
+                    ); // TODO: fix
                 }
                 _ => unreachable!(),
             },
@@ -41,7 +41,6 @@ impl ParsingResult {
 pub fn get_line_number(content: &[u8], offset: usize) -> usize {
     content[0..offset].iter().filter(|b| **b == b'\n').count() + 1
 }
-
 
 // TODO: Figure out new error handling!
 fn process_file<P: AsRef<Path>>(file_db: &mut FileDb, path: P) -> Result<ParsingResult> {
@@ -59,8 +58,11 @@ fn process_file<P: AsRef<Path>>(file_db: &mut FileDb, path: P) -> Result<Parsing
     let result = parser
         .start()
         .map(|declarations| types::AST { declarations })
-        .map_err(|mut e| { e.token_start = parser.progress() + 1; e })
-        .map_err(|e|e.into());
+        .map_err(|mut e| {
+            e.token_start = parser.progress() + 1;
+            e
+        })
+        .map_err(|e| e.into());
 
     Ok(ParsingResult::new(file_id, result))
 }
@@ -88,7 +90,10 @@ pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
     let d_paths = src_parser::parse_src(&path)?;
 
     let mut file_db = FileDb::new();
-    let results: Vec<ParsingResult> = d_paths.iter().map(|p|process_file(&mut file_db, p)).collect::<Result<_>>()?;
+    let results: Vec<ParsingResult> = d_paths
+        .iter()
+        .map(|p| process_file(&mut file_db, p))
+        .collect::<Result<_>>()?;
 
     let mut visitor = SymbolCollector::new();
 

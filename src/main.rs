@@ -81,8 +81,7 @@ fn run() -> errors::Result<()> {
                     Err(e) => println!("Error: {:?}", e),
                     Ok(tokenlist) => {
                         // println!("{}", tokenlist.iter().map(|t|t.stringified()).collect::<Vec<_>>().join("\n"));
-                        let mut parser =
-                            parsiphae::parser::parser::Parser::new(&tokenlist);
+                        let mut parser = parsiphae::parser::parser::Parser::new(&tokenlist);
 
                         let decls = parser.start();
 

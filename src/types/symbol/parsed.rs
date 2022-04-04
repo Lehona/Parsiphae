@@ -29,7 +29,7 @@ impl Symbol {
         }
     }
 
-    pub fn name(&self) -> types::Identifier {
+    pub fn name(&self) -> Vec<u8> {
         use self::Symbol::*;
 
         let full_name = match *self {
@@ -39,24 +39,24 @@ impl Symbol {
                     let mut bytes = scope.as_bytes().to_vec();
                     bytes.push(b'.');
                     bytes.extend_from_slice(name.as_bytes());
-                    types::Identifier::new(&bytes)
+                    bytes
                 } else {
-                    name.clone()
+                    name.name.to_vec()
                 }
             }
-            Func(ref func) => func.name.clone(),
-            Class(ref class) => class.name.clone(),
-            Inst(ref inst) => inst.name.clone(),
-            Proto(ref proto) => proto.name.clone(),
+            Func(ref func) => func.name.to_vec(),
+            Class(ref class) => class.name.to_vec(),
+            Inst(ref inst) => inst.name.to_vec(),
+            Proto(ref proto) => proto.name.to_vec(),
             Const(ref decl, ref scope) => {
                 let name = &decl.name;
                 if let Some(scope) = scope {
                     let mut bytes = scope.as_bytes().to_vec();
                     bytes.push(b'.');
                     bytes.extend_from_slice(name.as_bytes());
-                    types::Identifier::new(&bytes)
+                    bytes
                 } else {
-                    name.clone()
+                    name.name.to_vec()
                 }
             }
             ConstArray(ref decl, ref scope) => {
@@ -65,9 +65,9 @@ impl Symbol {
                     let mut bytes = scope.as_bytes().to_vec();
                     bytes.push(b'.');
                     bytes.extend_from_slice(name.as_bytes());
-                    types::Identifier::new(&bytes)
+                    bytes
                 } else {
-                    name.clone()
+                    name.name.to_vec()
                 }
             }
         };

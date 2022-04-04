@@ -5,6 +5,7 @@ pub struct VarDeclaration {
     pub typ: Identifier,
     pub name: Identifier,
     pub array_size: Option<ArraySizeDeclaration>,
+    pub span: (usize, usize),
 }
 
 impl VarDeclaration {
@@ -12,11 +13,13 @@ impl VarDeclaration {
         typ: Identifier,
         name: Identifier,
         array_size: Option<ArraySizeDeclaration>,
+        span: (usize, usize),
     ) -> Self {
         VarDeclaration {
             typ,
             name,
             array_size,
+            span,
         }
     }
 }

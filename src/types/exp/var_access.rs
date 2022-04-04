@@ -6,6 +6,7 @@ pub struct VarAccess {
     pub name: Identifier,
     pub instance: Option<Identifier>,
     pub index: Option<Expression>,
+    pub span: (usize, usize),
 }
 
 impl VarAccess {
@@ -13,6 +14,7 @@ impl VarAccess {
         first_ident: Identifier,
         second_ident: Option<Identifier>,
         index: Option<Expression>,
+        span: (usize, usize),
     ) -> Self {
         // In case there is a second identifier it's an object access (instance.member), so we swap the parameters around.
         if second_ident.is_some() {
@@ -20,12 +22,14 @@ impl VarAccess {
                 name: second_ident.unwrap(),
                 instance: Some(first_ident),
                 index,
+                span,
             }
         } else {
             VarAccess {
                 name: first_ident,
                 instance: None,
                 index,
+                span,
             }
         }
     }
@@ -45,7 +49,7 @@ impl ::std::fmt::Debug for VarAccess {
             format!("{}", self.name)
         };
 
-        write!(f, "VarAccess:  {}{}", body, array_access)
+        write!(f, "VarAccess: {}{} ({:?})", body, array_access, self.span)
     }
 }
 

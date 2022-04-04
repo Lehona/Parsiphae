@@ -2,7 +2,7 @@ use crate::types;
 use crate::types::parsed;
 
 pub struct SymbolCollection {
-    syms: Vec<(types::Identifier, parsed::Symbol)>,
+    syms: Vec<(Vec<u8>, parsed::Symbol)>, // TODO Do we really need a tuple?
 }
 
 impl SymbolCollection {
@@ -18,7 +18,7 @@ impl SymbolCollection {
 
     pub fn get_by_name(&self, name: &[u8]) -> Option<&parsed::Symbol> {
         for (ref fullname, ref symb) in self.syms.iter() {
-            if fullname.as_bytes().eq_ignore_ascii_case(name) {
+            if fullname.eq_ignore_ascii_case(name) {
                 return Some(symb);
             }
         }
