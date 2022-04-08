@@ -18,7 +18,9 @@ pub use self::decl::{
     Declaration, Function, Instance, Prototype, VarDeclaration,
 };
 
-pub use self::statement::{Assignment, AssignmentOperator, IfBranch, IfStatement, Statement, ReturnStatement};
+pub use self::statement::{
+    Assignment, AssignmentOperator, IfBranch, IfStatement, ReturnStatement, Statement,
+};
 
 pub use self::symbol::parsed;
 pub use self::symbol::SymbolCollection;

@@ -76,9 +76,11 @@ impl Symbol {
     }
 }
 
+// TODO implement void type?
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum zPAR_TYPE {
+    Void,
     Int,
     Float,
     String,
@@ -95,6 +97,8 @@ impl zPAR_TYPE {
             return zPAR_TYPE::Float;
         } else if ident_b.eq_ignore_ascii_case(b"string") {
             return zPAR_TYPE::String;
+        } else if ident_b.eq_ignore_ascii_case(b"void") {
+            return zPAR_TYPE::Void;
         } else {
             return zPAR_TYPE::Instance(ident.clone());
         }

@@ -62,7 +62,6 @@ impl crate::parser::parser::Parser {
         let start = self.span_start()?;
         self.consume(TokenKind::Var)?;
 
-
         let typ = self.ident()?;
         let name = self.ident()?;
 
@@ -77,7 +76,12 @@ impl crate::parser::parser::Parser {
 
         let end = self.span_end()?;
 
-        Ok(VarDeclaration::new(typ.clone(), name, size_decl, (start, end)))
+        Ok(VarDeclaration::new(
+            typ.clone(),
+            name,
+            size_decl,
+            (start, end),
+        ))
     }
 
     pub fn const_decl_stmt(&mut self) -> Result<Statement> {
@@ -106,13 +110,20 @@ impl crate::parser::parser::Parser {
             let initializer_start = self.span_start()?;
             let initializer_exps = self.expression_list()?;
             let initializer_end = self.span_end()?;
-            let initializer = ConstArrayInitializer::new(initializer_exps, (initializer_start, initializer_end));
+            let initializer =
+                ConstArrayInitializer::new(initializer_exps, (initializer_start, initializer_end));
             self.consume(TokenKind::BracketClose)?;
 
             let decl_end = self.span_end()?;
 
             return Ok(Statement::ConstArrayDeclaration(
-                ConstArrayDeclaration::new(typ, name, array_size, initializer, (decl_begin, decl_end)),
+                ConstArrayDeclaration::new(
+                    typ,
+                    name,
+                    array_size,
+                    initializer,
+                    (decl_begin, decl_end),
+                ),
             ));
         }
 

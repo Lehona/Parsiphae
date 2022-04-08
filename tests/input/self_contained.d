@@ -17,7 +17,7 @@ class oSDamageDescriptor {
 class C_Npc {};
 func C_Npc _^(var int ptr) {};
 func int MEM_ReadInt(var int ptr) { return 0; };
-func void HookEngineF(var int ptr, var func f) {};
+func void HookEngineF(var int ptr, var int old_length, var func f) {};
 
 var int EDI, ESP, EDI;
 
@@ -42,10 +42,10 @@ func void _DMG_OnDmg_Pre() {
 };
 
 func void InitDamage() {
-	const int dmg = 0;
+	// const int dmg = 0;
 	if (dmg) { return; };
 	HookEngineF(6736583/*0x66CAC7*/, 5, _DMG_OnDmg_Post);
-	const int oCNpc__OnDamage_Hit = 6710800;
+	// const int oCNpc__OnDamage_Hit = 6710800;
 	HookEngineF(oCNpc__OnDamage_Hit, 7, _DMG_OnDmg_Pre);
 	dmg = 1;
 };

@@ -9,7 +9,12 @@ pub struct ConstDeclaration {
 }
 
 impl ConstDeclaration {
-    pub fn new(typ: Identifier, name: Identifier, initializer: Expression, span: (usize, usize)) -> Self {
+    pub fn new(
+        typ: Identifier,
+        name: Identifier,
+        initializer: Expression,
+        span: (usize, usize),
+    ) -> Self {
         ConstDeclaration {
             typ,
             name,

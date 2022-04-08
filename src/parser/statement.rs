@@ -2,7 +2,7 @@ use crate::lexer::TokenKind;
 use crate::parser::errors::{
     ParsePossibility as PP, ParsingError, ParsingErrorKind as PEK, Result,
 };
-use crate::types::{Assignment, IfBranch, IfStatement, Statement, VarDeclaration, ReturnStatement};
+use crate::types::{Assignment, IfBranch, IfStatement, ReturnStatement, Statement, VarDeclaration};
 use std::convert::TryInto;
 
 impl crate::parser::parser::Parser {
@@ -74,7 +74,7 @@ impl crate::parser::parser::Parser {
 
         let condition = self.expression()?;
         let body = self.block()?;
-        let body_end =  self.previous()?.span.1;
+        let body_end = self.previous()?.span.1;
 
         let mut branches = vec![IfBranch {
             cond: condition,
@@ -173,7 +173,10 @@ impl crate::parser::parser::Parser {
         };
 
         let end = self.span_end()?;
-        Ok(Statement::ReturnStatement(ReturnStatement { exp, span: (start, end)}))
+        Ok(Statement::ReturnStatement(ReturnStatement {
+            exp,
+            span: (start, end),
+        }))
     }
 }
 
@@ -184,7 +187,7 @@ mod tests {
     use crate::parser::parser::Parser;
     use crate::types::{
         ArraySizeDeclaration, AssignmentOperator, BinaryExpression, BinaryOperator, Call,
-        Expression, Identifier, Statement, VarAccess, IntNode,
+        Expression, Identifier, IntNode, Statement, VarAccess,
     };
 
     #[test]
@@ -192,7 +195,10 @@ mod tests {
         let lexed = lex(b"if (3) {}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
-            cond: Expression::Int(IntNode { value: 3, span: (4, 5)}),
+            cond: Expression::Int(IntNode {
+                value: 3,
+                span: (4, 5),
+            }),
             body: Vec::new(),
             span: (0, 9),
         };
@@ -208,8 +214,14 @@ mod tests {
         let lexed = lex(b"if (3) {5;}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
-            cond: Expression::Int(IntNode { value: 3, span: (4, 5)}),
-            body: vec![Statement::Exp(Expression::Int(IntNode { value: 5, span: (8, 9)}))],
+            cond: Expression::Int(IntNode {
+                value: 3,
+                span: (4, 5),
+            }),
+            body: vec![Statement::Exp(Expression::Int(IntNode {
+                value: 5,
+                span: (8, 9),
+            }))],
             span: (0, 11),
         };
 
@@ -239,7 +251,10 @@ mod tests {
 
         let expected = IfBranch {
             cond,
-            body: vec![Statement::Exp(Expression::Int(IntNode { value: 5, span: (19, 20)}))],
+            body: vec![Statement::Exp(Expression::Int(IntNode {
+                value: 5,
+                span: (19, 20),
+            }))],
             span: (0, 22),
         };
 
@@ -254,11 +269,23 @@ mod tests {
         let lexed = lex(b"if (3) {5;3;6;}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
-            cond: Expression::Int(IntNode { value: 3, span: (4, 5)}),
+            cond: Expression::Int(IntNode {
+                value: 3,
+                span: (4, 5),
+            }),
             body: vec![
-                Statement::Exp(Expression::Int(IntNode { value: 5, span: (8, 9)})),
-                Statement::Exp(Expression::Int(IntNode { value: 3, span: (10, 11)})),
-                Statement::Exp(Expression::Int(IntNode { value: 6, span: (12, 13)})),
+                Statement::Exp(Expression::Int(IntNode {
+                    value: 5,
+                    span: (8, 9),
+                })),
+                Statement::Exp(Expression::Int(IntNode {
+                    value: 3,
+                    span: (10, 11),
+                })),
+                Statement::Exp(Expression::Int(IntNode {
+                    value: 6,
+                    span: (12, 13),
+                })),
             ],
             span: (0, 15),
         };
@@ -283,7 +310,10 @@ mod tests {
     #[test]
     fn else_branch_single_statement() {
         let lexed = lex(b"if 0 {} else {5;}").unwrap();
-        let expected: Vec<Statement> = vec![Statement::Exp(Expression::Int(IntNode { value: 5, span: (14, 15)}))];
+        let expected: Vec<Statement> = vec![Statement::Exp(Expression::Int(IntNode {
+            value: 5,
+            span: (14, 15),
+        }))];
 
         let mut parser = Parser::new(&lexed);
         let actual = &parser.if_statement().unwrap().else_branch.unwrap();
@@ -297,7 +327,10 @@ mod tests {
         println!("Lexed as: {:#?}", lexed);
         let expected = IfStatement {
             branches: vec![IfBranch {
-                cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
+                cond: Expression::Int(IntNode {
+                    value: 3,
+                    span: (3, 4),
+                }),
                 body: Vec::new(),
                 span: (0, 7),
             }],
@@ -318,12 +351,18 @@ mod tests {
         let expected = IfStatement {
             branches: vec![
                 IfBranch {
-                    cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
+                    cond: Expression::Int(IntNode {
+                        value: 3,
+                        span: (3, 4),
+                    }),
                     body: Vec::new(),
-                    span: (0, 7)
+                    span: (0, 7),
                 },
                 IfBranch {
-                    cond: Expression::Int(IntNode { value: 2, span: (17, 18)}),
+                    cond: Expression::Int(IntNode {
+                        value: 2,
+                        span: (17, 18),
+                    }),
                     body: Vec::new(),
                     span: (8, 21),
                 },
@@ -344,12 +383,18 @@ mod tests {
         let expected = IfStatement {
             branches: vec![
                 IfBranch {
-                    cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
+                    cond: Expression::Int(IntNode {
+                        value: 3,
+                        span: (3, 4),
+                    }),
                     body: Vec::new(),
-                    span: (0, 7)
+                    span: (0, 7),
                 },
                 IfBranch {
-                    cond: Expression::Int(IntNode { value: 2, span: (17, 18)}),
+                    cond: Expression::Int(IntNode {
+                        value: 2,
+                        span: (17, 18),
+                    }),
                     body: Vec::new(),
                     span: (8, 21),
                 },
@@ -370,7 +415,10 @@ mod tests {
         let expected = Assignment {
             var: VarAccess::new(Identifier::new(b"foo", (0, 3)), None, None, (0, 3)),
             op: AssignmentOperator::Eq,
-            exp: Expression::Int(IntNode { value: 3, span: (4, 5)}),
+            exp: Expression::Int(IntNode {
+                value: 3,
+                span: (4, 5),
+            }),
             span: (0, 5),
         };
         let mut parser = Parser::new(&lexed);
@@ -390,7 +438,10 @@ mod tests {
                 (0, 7),
             ),
             op: AssignmentOperator::Eq,
-            exp: Expression::Int(IntNode { value: 3, span: (8, 9)}),
+            exp: Expression::Int(IntNode {
+                value: 3,
+                span: (8, 9),
+            }),
             span: (0, 9),
         };
         let mut parser = Parser::new(&lexed);
@@ -410,7 +461,10 @@ mod tests {
                 (0, 7),
             ),
             op: AssignmentOperator::DivideEq,
-            exp: Expression::Int(IntNode { value: 3, span: (9, 10)}),
+            exp: Expression::Int(IntNode {
+                value: 3,
+                span: (9, 10),
+            }),
             span: (0, 10),
         };
         let mut parser = Parser::new(&lexed);
@@ -426,11 +480,17 @@ mod tests {
             var: VarAccess::new(
                 Identifier::new(b"foo", (0, 3)),
                 None,
-                Some(Expression::Int(IntNode { value: 0, span: (4, 5)})),
+                Some(Expression::Int(IntNode {
+                    value: 0,
+                    span: (4, 5),
+                })),
                 (0, 6),
             ),
             op: AssignmentOperator::DivideEq,
-            exp: Expression::Int(IntNode { value: 3, span: (8, 9)}),
+            exp: Expression::Int(IntNode {
+                value: 3,
+                span: (8, 9),
+            }),
             span: (0, 9),
         };
         let mut parser = Parser::new(&lexed);
@@ -446,11 +506,17 @@ mod tests {
             var: VarAccess::new(
                 Identifier::new(b"foo", (0, 3)),
                 None,
-                Some(Expression::Int(IntNode { value: 0, span: (4, 5)})),
+                Some(Expression::Int(IntNode {
+                    value: 0,
+                    span: (4, 5),
+                })),
                 (0, 6),
             ),
             op: AssignmentOperator::DivideEq,
-            exp: Expression::Int(IntNode { value: 3, span: (8, 9)}),
+            exp: Expression::Int(IntNode {
+                value: 3,
+                span: (8, 9),
+            }),
             span: (0, 9),
         });
         let mut parser = Parser::new(&lexed);
@@ -466,12 +532,18 @@ mod tests {
         let expected = Statement::If(Box::new(IfStatement {
             branches: vec![
                 IfBranch {
-                    cond: Expression::Int(IntNode { value: 3, span: (3, 4)}),
+                    cond: Expression::Int(IntNode {
+                        value: 3,
+                        span: (3, 4),
+                    }),
                     body: Vec::new(),
                     span: (0, 7),
                 },
                 IfBranch {
-                    cond: Expression::Int(IntNode { value: 2, span: (17, 18)}),
+                    cond: Expression::Int(IntNode {
+                        value: 2,
+                        span: (17, 18),
+                    }),
                     body: Vec::new(),
                     span: (8, 21),
                 },
@@ -537,7 +609,7 @@ mod tests {
     #[test]
     fn multi_var_decl_var_camel_case() {
         /* the parser might parse this as "var int foo[3], vAr;, which mustn't happen */
-        
+
         let lexed = lex(b"var int foo[3], vAr zCVob bar;");
         let expected = vec![
             VarDeclaration::new(
@@ -590,7 +662,10 @@ mod tests {
     #[test]
     fn void_return() {
         let lexed = lex(b"return;");
-        let expected = Statement::ReturnStatement(ReturnStatement { exp: None, span: (0, 7)});
+        let expected = Statement::ReturnStatement(ReturnStatement {
+            exp: None,
+            span: (0, 7),
+        });
 
         let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();
@@ -601,7 +676,13 @@ mod tests {
     #[test]
     fn int_return() {
         let lexed = lex(b"return 3;");
-        let expected = Statement::ReturnStatement(ReturnStatement { exp: Some(Expression::Int(IntNode { value: 3, span: (7, 8)})), span: (0, 9)});
+        let expected = Statement::ReturnStatement(ReturnStatement {
+            exp: Some(Expression::Int(IntNode {
+                value: 3,
+                span: (7, 8),
+            })),
+            span: (0, 9),
+        });
 
         let mut parser = Parser::new(&lexed.unwrap());
         let actual = parser.statement().unwrap();

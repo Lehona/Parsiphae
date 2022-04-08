@@ -5,6 +5,7 @@ pub struct Instance {
     pub name: Identifier,
     pub class: Identifier,
     pub body: Vec<Statement>,
+    pub span: (usize, usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,6 +13,7 @@ pub struct Prototype {
     pub name: Identifier,
     pub class: Identifier,
     pub body: Vec<Statement>,
+    pub span: (usize, usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]

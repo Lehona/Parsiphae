@@ -23,7 +23,6 @@ impl Statement {
             Statement::ConstDeclaration(c) => c.span,
             Statement::ConstArrayDeclaration(c) => c.span,
             Statement::ReturnStatement(r) => r.span,
-
         }
     }
 }

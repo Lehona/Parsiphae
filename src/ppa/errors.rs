@@ -1,17 +1,40 @@
-use crate::types::Identifier;
+use crate::types::{parsed::zPAR_TYPE, Class, Identifier};
 
 pub type Result<O> = std::result::Result<O, TypecheckError>;
+type Span = (usize, usize);
+type SymbolKind = ();
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum TypecheckErrorKind {
+    InternalFailure(String),
     UnknownIdentifier(Vec<u8>),
-    MixingFloatAndString(usize, usize), // Secondary Span
-    MixingFLoatAndInt(usize, usize),
-    MixingIntAndString(usize, usize),
     VoidFunctionInExpression,
-    UnknownReturnType(Identifier),
+    UnknownReturnType(Identifier), // Return Type is an unknown symbol
+    UnknownParameterType(Identifier), // Parameter type is an unknown symbol
+    UnknownFunctionCall(Identifier), // Tries to call an unknown function
+    FunctionCallWrongType(Identifier, SymbolKind), // Tries to call symbol that is not a function
+    UnknownIdentifierInExpression(Identifier), // Tries to use an unknown identifier in an expression
+    IdentifierIsClassInExpression(Identifier), // The identifier in an expression is known but a class
+    FunctionCallParameterWrongType(zPAR_TYPE, zPAR_TYPE), // Parameter has type 1 but Expression has type 2
+    BinaryExpressionNotInt,
+    UnaryExpressionNotInt,
+    AssignmentWrongTypes(zPAR_TYPE, Span, zPAR_TYPE, Span), // Left type and left side span, right type and right side span
+    CanOnlyAssignToString, // String does not support anything besides Assignment (no +=, *=, ...)
+    CanOnlyAssignToFloat,  // Float does not support anything besides Assignment (no +=, *=, ...)
+    CanOnlyAssignToInstance, // Instances do not support anything besides Assignment (no +=, *=, ...)
+    ConditionNotInt(zPAR_TYPE), // The condition in an if clause is something else than Int
+    ReturnExpressionDoesNotMatchReturnType(Identifier, zPAR_TYPE), // 1 is function return type, 2 is type of return expression
+    ReturnWithoutExpression(Identifier), // 1 is the return type of the function
+    ReturnExpressionInVoidFunction(Identifier), // 1 is the return type of the function
+    UnknownIdentifierInArraySize(Identifier),
+    NonConstantArraySize, // Array Size is an Identifier that does not point to a constant
+    ArraySizeIsNotInteger(zPAR_TYPE, Span), // Array Size is an Identifier of wrong type, Identifier defined at 2
+    InstanceHasUnknownParent(Identifier),
+    InstanceParentNotClassOrProto(Identifier, SymbolKind), // The parent 1 is not a class or prototype, instead the symbol is kind 2
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypecheckError {
     pub kind: TypecheckErrorKind,
-    pub span: (usize, usize),
+    pub span: Span,
 }

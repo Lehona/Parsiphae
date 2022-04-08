@@ -57,6 +57,7 @@ impl crate::parser::parser::Parser {
     }
 
     pub fn instance_decl(&mut self) -> Result<Instance> {
+        let span_start = self.span_start()?;
         self.consume(TokenKind::Instance)?;
 
         let name = match self.ident() {
@@ -88,10 +89,18 @@ impl crate::parser::parser::Parser {
             Vec::new()
         };
 
-        Ok(Instance { name, class, body })
+        let span_end = self.span_end()?;
+
+        Ok(Instance {
+            name,
+            class,
+            body,
+            span: (span_start, span_end),
+        })
     }
 
     pub fn prototype_decl(&mut self) -> Result<Prototype> {
+        let span_start = self.span_start()?;
         self.consume(TokenKind::Prototype)?;
 
         let name = self.ident()?;
@@ -99,8 +108,14 @@ impl crate::parser::parser::Parser {
         let class = self.ident()?;
         self.consume(TokenKind::ParenClose)?;
         let body = self.block()?;
+        let span_end = self.span_end()?;
 
-        Ok(Prototype { name, class, body })
+        Ok(Prototype {
+            name,
+            class,
+            body,
+            span: (span_start, span_end),
+        })
     }
 }
 
@@ -110,8 +125,8 @@ mod tests {
     use crate::lexer::lex;
     use crate::parser::parser::Parser;
     use crate::types::{
-        Assignment, AssignmentOperator, Expression, Identifier, Statement, VarAccess,
-        VarDeclaration, IntNode,
+        Assignment, AssignmentOperator, Expression, Identifier, IntNode, Statement, VarAccess,
+        VarDeclaration,
     };
 
     #[test]
@@ -168,7 +183,7 @@ mod tests {
                     Identifier::new(b"int", (31, 34)),
                     Identifier::new(b"baz", (35, 38)),
                     None,
-                    (27, 39)
+                    (27, 39),
                 ),
             ],
             body: Vec::new(),
@@ -187,7 +202,10 @@ mod tests {
             typ: Identifier::new(b"void", (5, 9)),
             name: Identifier::new(b"foo", (10, 13)),
             params: Vec::new(),
-            body: vec![Statement::Exp(Expression::Int(IntNode { value: 3, span: (17, 18)}))],
+            body: vec![Statement::Exp(Expression::Int(IntNode {
+                value: 3,
+                span: (17, 18),
+            }))],
         };
 
         let mut parser = Parser::new(&lexed);
@@ -203,6 +221,7 @@ mod tests {
             name: Identifier::new(b"foo", (10, 13)),
             class: Identifier::new(b"bar", (15, 18)),
             body: Vec::new(),
+            span: (0, 22),
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -220,9 +239,13 @@ mod tests {
             body: vec![Statement::Ass(Assignment {
                 var: VarAccess::new(Identifier::new(b"name", (21, 25)), None, None, (21, 25)),
                 op: AssignmentOperator::Eq,
-                exp: Expression::Int(IntNode { value: 3, span: (26, 27) }),
+                exp: Expression::Int(IntNode {
+                    value: 3,
+                    span: (26, 27),
+                }),
                 span: (21, 27),
             })],
+            span: (0, 29),
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -238,6 +261,7 @@ mod tests {
             name: Identifier::new(b"foo", (9, 12)),
             class: Identifier::new(b"bar", (14, 17)),
             body: Vec::new(),
+            span: (0, 21),
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -255,9 +279,13 @@ mod tests {
             body: vec![Statement::Ass(Assignment {
                 var: VarAccess::new(Identifier::new(b"name", (20, 24)), None, None, (20, 24)),
                 op: AssignmentOperator::Eq,
-                exp: Expression::Int(IntNode { value: 3, span: (25, 26)}),
+                exp: Expression::Int(IntNode {
+                    value: 3,
+                    span: (25, 26),
+                }),
                 span: (20, 26),
             })],
+            span: (0, 28),
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -273,6 +301,7 @@ mod tests {
             name: Identifier::new(b"foo", (9, 12)),
             class: Identifier::new(b"bar", (14, 17)),
             body: Vec::new(),
+            span: (0, 18),
         };
 
         let mut parser = Parser::new(&lexed.unwrap());

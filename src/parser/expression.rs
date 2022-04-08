@@ -2,7 +2,7 @@ use crate::lexer::TokenKind;
 use crate::parser::errors::{
     ParsePossibility as PP, ParsingError, ParsingErrorKind as PEK, Result,
 };
-use crate::types::{Expression, Identifier, VarAccess, FloatNode, IntNode};
+use crate::types::{Expression, FloatNode, Identifier, IntNode, VarAccess};
 
 use std::convert::TryInto;
 
@@ -21,7 +21,11 @@ impl crate::parser::parser::Parser {
             let span_end = right.get_span().1;
 
             Ok(crate::types::Expression::Unary(Box::new(
-                crate::types::UnaryExpression::from_token(prev.kind.try_into().unwrap(), right, (span_start, span_end))?, // TODO: fix unwrap
+                crate::types::UnaryExpression::from_token(
+                    prev.kind.try_into().unwrap(),
+                    right,
+                    (span_start, span_end),
+                )?, // TODO: fix unwrap
             )))
         } else {
             self.value()
@@ -149,11 +153,17 @@ impl crate::parser::parser::Parser {
         match self.current_ref()?.kind {
             TokenKind::Integer(i) => {
                 self.advance();
-                return Ok(Expression::Int(IntNode { value: i as i64, span: current_span }));
+                return Ok(Expression::Int(IntNode {
+                    value: i as i64,
+                    span: current_span,
+                }));
             }
             TokenKind::Decimal(f) => {
                 self.advance();
-                return Ok(Expression::Float(FloatNode { value: f as f64, span: current_span }));
+                return Ok(Expression::Float(FloatNode {
+                    value: f as f64,
+                    span: current_span,
+                }));
             }
             TokenKind::ParenOpen => return self.parentheses(),
             _ => (),
@@ -228,7 +238,7 @@ mod tests {
     use super::*;
     use crate::lexer::lex;
     use crate::parser::parser::Parser;
-    use crate::types::{Call, Identifier, StringLiteral, VarAccess, IntNode};
+    use crate::types::{Call, Identifier, IntNode, StringLiteral, VarAccess};
 
     macro_rules! test_binary_eval {
         ($name:ident, $input:literal = $output:literal) => {
@@ -300,7 +310,10 @@ mod tests {
         let lexed = lex(b"foo(3)");
         let expected = Call {
             func: Identifier::new(b"foo", (0, 3)),
-            params: vec![Expression::Int(IntNode { value: 3, span: (4, 5)})],
+            params: vec![Expression::Int(IntNode {
+                value: 3,
+                span: (4, 5),
+            })],
             span: (0, 6),
         };
 
@@ -322,7 +335,10 @@ mod tests {
         let expected = Call {
             func: Identifier::new(b"foo", (0, 3)),
             params: vec![
-                Expression::Int(IntNode { value: 3, span: (4, 5)}),
+                Expression::Int(IntNode {
+                    value: 3,
+                    span: (4, 5),
+                }),
                 Expression::String(StringLiteral::new(b"hello", (7, 14))),
             ],
             span: (0, 15),
@@ -385,7 +401,10 @@ mod tests {
         let expected = VarAccess::new(
             Identifier::new(b"foo", (0, 3)),
             None,
-            Some(Expression::Int(IntNode { value: 3, span: (4, 5)})),
+            Some(Expression::Int(IntNode {
+                value: 3,
+                span: (4, 5),
+            })),
             (0, 6),
         );
 
@@ -407,7 +426,10 @@ mod tests {
         let expected = VarAccess::new(
             Identifier::new(b"foo", (0, 3)),
             Some(Identifier::new(b"bar", (4, 7))),
-            Some(Expression::Int(IntNode { value: 3, span: (8, 9)})),
+            Some(Expression::Int(IntNode {
+                value: 3,
+                span: (8, 9),
+            })),
             (0, 10),
         );
 
