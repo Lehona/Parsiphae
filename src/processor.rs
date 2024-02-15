@@ -95,7 +95,7 @@ impl Parsiphae {
         }
 
         if config.json {
-            MachineReadableOutput::process(errors).expect("Failed...");
+            MachineReadableOutput::process(&file_db, errors).expect("Failed...");
         }
 
         log::info!("Parsed {} files.", successful_parses.len() + amount_errors);
