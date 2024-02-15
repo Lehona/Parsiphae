@@ -183,7 +183,7 @@ impl crate::parser::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::lex;
+    use crate::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::types::{
         ArraySizeDeclaration, AssignmentOperator, BinaryExpression, BinaryOperator, Call,
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn simple_empty() {
-        let lexed = lex(b"if (3) {}").unwrap();
+        let lexed = Lexer::lex(b"if (3) {}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
             cond: Expression::Int(IntNode {
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn single_statement() {
-        let lexed = lex(b"if (3) {5;}").unwrap();
+        let lexed = Lexer::lex(b"if (3) {5;}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
             cond: Expression::Int(IntNode {
@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn complex_cond() {
-        let lexed = lex(b"if (foo()||bar()) {5;}").unwrap();
+        let lexed = Lexer::lex(b"if (foo()||bar()) {5;}").unwrap();
         let cond = Expression::Binary(Box::new(BinaryExpression::new(
             BinaryOperator::Or,
             Expression::Call(Box::new(Call {
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn many_statements() {
-        let lexed = lex(b"if (3) {5;3;6;}").unwrap();
+        let lexed = Lexer::lex(b"if (3) {5;3;6;}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfBranch {
             cond: Expression::Int(IntNode {
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn else_branch_empty() {
-        let lexed = lex(b"if 0 {} else{}").unwrap();
+        let lexed = Lexer::lex(b"if 0 {} else{}").unwrap();
         let expected: Vec<Statement> = Vec::new();
 
         let mut parser = Parser::new(&lexed);
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn else_branch_single_statement() {
-        let lexed = lex(b"if 0 {} else {5;}").unwrap();
+        let lexed = Lexer::lex(b"if 0 {} else {5;}").unwrap();
         let expected: Vec<Statement> = vec![Statement::Exp(Expression::Int(IntNode {
             value: 5,
             span: (14, 15),
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn if_else_empty() {
-        let lexed = lex(b"if 3 {} else {}").unwrap();
+        let lexed = Lexer::lex(b"if 3 {} else {}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfStatement {
             branches: vec![IfBranch {
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn double_if() {
-        let lexed = lex(b"if(3){} else if (2) {}").unwrap();
+        let lexed = Lexer::lex(b"if(3){} else if (2) {}").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = IfStatement {
             branches: vec![
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn double_if_else() {
-        let lexed = lex(b"if(3){} else if (2) {} else {}").unwrap();
+        let lexed = Lexer::lex(b"if(3){} else if (2) {} else {}").unwrap();
         let expected = IfStatement {
             branches: vec![
                 IfBranch {
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn simple_eq_int() {
-        let lexed = lex(b"foo=3").unwrap();
+        let lexed = Lexer::lex(b"foo=3").unwrap();
         let expected = Assignment {
             var: VarAccess::new(Identifier::new(b"foo", (0, 3)), None, None, (0, 3)),
             op: AssignmentOperator::Eq,
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn instance_eq_int() {
-        let lexed = lex(b"foo.bar=3").unwrap();
+        let lexed = Lexer::lex(b"foo.bar=3").unwrap();
         let expected = Assignment {
             var: VarAccess::new(
                 Identifier::new(b"foo", (0, 3)),
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn instance_diveq_int() {
-        let lexed = lex(b"foo.bar/=3").unwrap();
+        let lexed = Lexer::lex(b"foo.bar/=3").unwrap();
         let expected = Assignment {
             var: VarAccess::new(
                 Identifier::new(b"foo", (0, 3)),
@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn array_assign() {
-        let lexed = lex(b"foo[0]/=3").unwrap();
+        let lexed = Lexer::lex(b"foo[0]/=3").unwrap();
         let expected = Assignment {
             var: VarAccess::new(
                 Identifier::new(b"foo", (0, 3)),
@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn array_assign_stmt() {
-        let lexed = lex(b"foo[0]/=3;").unwrap();
+        let lexed = Lexer::lex(b"foo[0]/=3;").unwrap();
         let expected = Statement::Ass(Assignment {
             var: VarAccess::new(
                 Identifier::new(b"foo", (0, 3)),
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn double_if_else_stmt() {
-        let lexed = lex(b"if(3){} else if (2) {} else {};").unwrap();
+        let lexed = Lexer::lex(b"if(3){} else if (2) {} else {};").unwrap();
         println!("Lexed as: {:#?}", lexed);
         let expected = Statement::If(Box::new(IfStatement {
             branches: vec![
@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn multi_var_decl() {
-        let lexed = lex(b"var int foo, var zCVob bar;");
+        let lexed = Lexer::lex(b"var int foo, var zCVob bar;");
         let expected = Statement::VarDeclarations(vec![
             VarDeclaration::new(
                 Identifier::new(b"int", (4, 7)),
@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn multi_var_decl_one_array() {
-        let lexed = lex(b"var int foo[3], var zCVob bar;");
+        let lexed = Lexer::lex(b"var int foo[3], var zCVob bar;");
         let expected = Statement::VarDeclarations(vec![
             VarDeclaration::new(
                 Identifier::new(b"int", (4, 7)),
@@ -610,7 +610,7 @@ mod tests {
     fn multi_var_decl_var_camel_case() {
         /* the parser might parse this as "var int foo[3], vAr;, which mustn't happen */
 
-        let lexed = lex(b"var int foo[3], vAr zCVob bar;");
+        let lexed = Lexer::lex(b"var int foo[3], vAr zCVob bar;");
         let expected = vec![
             VarDeclaration::new(
                 Identifier::new(b"int", (4, 7)),
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn multi_var_decl_both_array() {
-        let lexed = lex(b"var int foo[3], var zCVob bar [MAX];");
+        let lexed = Lexer::lex(b"var int foo[3], var zCVob bar [MAX];");
         let expected = Statement::VarDeclarations(vec![
             VarDeclaration::new(
                 Identifier::new(b"int", (4, 7)),
@@ -661,7 +661,7 @@ mod tests {
 
     #[test]
     fn void_return() {
-        let lexed = lex(b"return;");
+        let lexed = Lexer::lex(b"return;");
         let expected = Statement::ReturnStatement(ReturnStatement {
             exp: None,
             span: (0, 7),
@@ -675,7 +675,7 @@ mod tests {
 
     #[test]
     fn int_return() {
-        let lexed = lex(b"return 3;");
+        let lexed = Lexer::lex(b"return 3;");
         let expected = Statement::ReturnStatement(ReturnStatement {
             exp: Some(Expression::Int(IntNode {
                 value: 3,
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn return_identifier() {
-        let lexed = lex(b"returnVar;");
+        let lexed = Lexer::lex(b"returnVar;");
         let expected = Statement::Exp(Expression::Identifier(Box::new(VarAccess::new(
             Identifier::new(b"returnVar", (0, 9)),
             None,

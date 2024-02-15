@@ -100,4 +100,9 @@ impl ParsingError {
             recoverable: false,
         }
     }
+
+    pub fn with_token_start(mut self, start: usize) -> Self {
+        self.token_start = start;
+        self
+    }
 }

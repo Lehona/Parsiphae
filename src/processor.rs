@@ -1,8 +1,16 @@
+use crate::config::{Config, InputFile};
 use crate::error_handler::process_parsing_result;
 use crate::file::{File, FileDb};
+use crate::json::MachineReadableOutput;
+use crate::lexer::Lexer;
+use crate::parser::errors::ParsingError;
+use crate::parser::parser::Parser;
 use crate::ppa::symbol_collector::SymbolCollector;
+use crate::src_parser::SrcParser;
 use crate::types::SymbolCollection;
-use crate::{errors::*, ppa, src_parser, types};
+use crate::{errors::*, ppa, types};
+use itertools::Either;
+use itertools::Itertools;
 use std::io::Read;
 use std::path::Path;
 
@@ -42,81 +50,80 @@ pub fn get_line_number(content: &[u8], offset: usize) -> usize {
     content[0..offset].iter().filter(|b| **b == b'\n').count() + 1
 }
 
-// TODO: Figure out new error handling!
-fn process_file<P: AsRef<Path>>(file_db: &mut FileDb, path: P) -> Result<ParsingResult> {
-    let mut file = ::std::fs::File::open(&path).unwrap();
+pub struct Parsiphae;
 
-    let mut content = Vec::new();
-    file.read_to_end(&mut content)?;
+impl Parsiphae {
+    /// This is essentially the entry point to Parsiphae. You pass
+    /// in a configuration, and Parsiphae will start the parsing process.
+    /// Currently the only output are log lines.
+    ///
+    /// # Parameters
+    /// `config`: Parsiphae configuration
+    ///
+    /// # Returns
+    /// Ok() if processing was succesful.
+    pub fn process(config: Config) -> Result<()> {
+        let files = match config.input_file {
+            InputFile::SingleFile(path) => vec![path],
+            InputFile::Src(path) => SrcParser::parse_src(&path)?,
+        };
 
-    let tokens = crate::lexer::lex(&content).expect("Unable to tokenize");
-    let mut parser = crate::parser::parser::Parser::new(&tokens);
+        let mut file_db = FileDb::new();
+        let mut visitor = SymbolCollector::new();
 
-    let file_obj = File::new(path.as_ref().to_owned(), content, Some(tokens));
-    let file_id = file_db.add(file_obj);
+        let (successful_parses, errors): (Vec<types::AST>, Vec<(usize, ParsingError)>) = files
+            .into_iter()
+            .map(|file| Self::process_file(&mut file_db, file))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .partition_map(|r| match r.result {
+                Ok(ast) => Either::Left(ast),
+                Err(e) => Either::Right((r.file_id, e.as_parsing_error())),
+            });
 
-    let result = parser
-        .start()
-        .map(|declarations| types::AST { declarations })
-        .map_err(|mut e| {
-            e.token_start = parser.progress() + 1;
-            e
-        })
-        .map_err(|e| e.into());
-
-    Ok(ParsingResult::new(file_id, result))
-}
-
-pub fn process_single_file<P: AsRef<Path>>(path: P) -> Result<()> {
-    let mut file_db = FileDb::new();
-    let res = process_file(&mut file_db, path)?;
-
-    let mut visitor = SymbolCollector::new();
-    {
-        if let Ok(ref ast) = res.result {
+        for ast in &successful_parses {
             crate::ppa::visitor::visit_ast(&ast, &mut visitor);
-        } else {
-            process_parsing_result(&file_db, res)
         }
 
         let symbols = SymbolCollection::new(visitor.syms);
         let mut typechk = ppa::typecheck::TypeChecker::new(&symbols);
-        typechk.typecheck();
-    }
-    Ok(())
-}
+        let _tc_result = typechk.typecheck();
+        let amount_errors = errors.len();
 
-pub fn process_src<P: AsRef<Path>>(path: P) -> Result<()> {
-    let d_paths = src_parser::parse_src(&path)?;
-
-    let mut file_db = FileDb::new();
-    let results: Vec<ParsingResult> = d_paths
-        .iter()
-        .map(|p| process_file(&mut file_db, p))
-        .collect::<Result<_>>()?;
-
-    let mut visitor = SymbolCollector::new();
-
-    {
-        let okay_results = results.iter().filter_map(|res| res.result.as_ref().ok());
-
-        for ast in okay_results {
-            crate::ppa::visitor::visit_ast(&ast, &mut visitor);
+        for (file_id, error) in &errors {
+            process_parsing_result(&file_db, *file_id, error);
         }
+
+        if config.json {
+            MachineReadableOutput::process(errors).expect("Failed...");
+        }
+
+        log::info!("Parsed {} files.", successful_parses.len() + amount_errors);
+        if amount_errors == 0 {
+            log::info!("No syntax errors detected.");
+        }
+
+        Ok(())
     }
 
-    println!("Parsed {} files", results.len());
-    if results.iter().all(ParsingResult::is_ok) {
-        println!("No syntax errors detected!");
-        return Ok(());
-    } else {
-        let mut err = Ok(());
-        for result in results {
-            result.print();
-            if let Err(e) = result.result {
-                err = Err(e);
-            }
-        }
-        return err;
+    // TODO: Figure out new error handling!
+    fn process_file<P: AsRef<Path>>(file_db: &mut FileDb, path: P) -> Result<ParsingResult> {
+        let mut file = std::fs::File::open(&path).unwrap();
+
+        let mut content = Vec::new();
+        file.read_to_end(&mut content)?;
+
+        let tokens = Lexer::lex(&content).expect("Unable to tokenize");
+        let mut parser = Parser::new(&tokens);
+
+        let file_obj = File::new(path.as_ref().to_owned(), content, Some(tokens));
+        let file_id = file_db.add(file_obj);
+
+        let result = parser
+            .start()
+            .map(|declarations| types::AST { declarations })
+            .map_err(|e| e.with_token_start(parser.progress() + 1).into());
+
+        Ok(ParsingResult::new(file_id, result))
     }
 }

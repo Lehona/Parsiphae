@@ -1,5 +1,5 @@
 use crate::types::parsed;
-use crate::types::{self, Identifier};
+use crate::types::Identifier;
 
 pub struct SymbolCollection {
     syms: Vec<(Vec<u8>, parsed::Symbol)>, // TODO Do we really need a tuple?

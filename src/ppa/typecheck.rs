@@ -1,8 +1,5 @@
-use crate::ppa::visitor::VisitorMut;
 use crate::types::parsed::{self, zPAR_TYPE};
-use crate::types::{
-    self, Assignment, AssignmentOperator, Identifier, IfStatement, Statement, VarAccess,
-};
+use crate::types::{self, AssignmentOperator, IfStatement, Statement, VarAccess};
 
 use super::errors::{TypecheckError, TypecheckErrorKind as TEK};
 
@@ -33,16 +30,17 @@ impl<'a> TypeChecker<'a> {
                     let _ = self.typecheck_class(class);
                 }
                 Inst(ref inst) => {
-                    self.typecheck_instance(inst);
+                    self.typecheck_instance(inst)?;
                 }
                 Proto(ref proto) => {
-                    self.typecheck_prototype(proto);
+                    self.typecheck_prototype(proto)?;
                 }
-                Var(decl, None) => {  // Only check unscoped Variables, all other variables will be typechecked as part of other stuff anyway
-                    self.typecheck_var_decl(decl, None);
+                Var(decl, None) => {
+                    // Only check unscoped Variables, all other variables will be typechecked as part of other stuff anyway
+                    self.typecheck_var_decl(decl, None)?;
                 }
                 Var(_decl, Some(_scope)) => {}
-                _ => unimplemented!(), // TODO
+                _ => todo!(),
             }
         }
 
@@ -108,19 +106,28 @@ impl<'a> TypeChecker<'a> {
         &mut self,
         statement: &types::Statement,
         scope: Option<&types::Identifier>,
-    ) {
+    ) -> TCResult<()> {
         match statement {
-            Statement::Exp(ref exp) => { self.typecheck_expression(exp, scope); }
-            Statement::Ass(ref ass) => { self.typecheck_assignment(ass, scope); }
-            Statement::If(ref if_clause) => { self.typecheck_if_clause(if_clause, scope); }
-            Statement::ReturnStatement(ref ret) => { self.typecheck_return(ret, scope); }
+            Statement::Exp(ref exp) => {
+                self.typecheck_expression(exp, scope)?;
+            }
+            Statement::Ass(ref ass) => {
+                self.typecheck_assignment(ass, scope)?;
+            }
+            Statement::If(ref if_clause) => {
+                self.typecheck_if_clause(if_clause, scope)?;
+            }
+            Statement::ReturnStatement(ref ret) => {
+                self.typecheck_return(ret, scope)?;
+            }
             Statement::VarDeclarations(ref decls) => {
                 for decl in decls {
-                    self.typecheck_var_decl(decl, scope);
+                    self.typecheck_var_decl(decl, scope)?;
                 }
             }
             _ => unimplemented!(), // TODO
         }
+        Ok(())
     }
 
     fn typecheck_var_access(
@@ -355,7 +362,7 @@ impl<'a> TypeChecker<'a> {
                                         });
                                     }
                                 }
-                                Some(exp) => {
+                                Some(_exp) => {
                                     self.errors.push(TypecheckError {
                                         kind: TEK::ReturnExpressionInVoidFunction(func.typ.clone()),
                                         span: ret.span,
@@ -483,7 +490,7 @@ impl<'a> TypeChecker<'a> {
         };
 
         for statement in &proto.body {
-            self.typecheck_statement(statement, Some(scope));
+            self.typecheck_statement(statement, Some(scope))?;
         }
         Ok(zPAR_TYPE::from_ident(&proto.class))
     }
@@ -512,7 +519,7 @@ impl<'a> TypeChecker<'a> {
         };
 
         for statement in &inst.body {
-            self.typecheck_statement(statement, Some(scope));
+            self.typecheck_statement(statement, Some(scope))?;
         }
         Ok(zPAR_TYPE::from_ident(&inst.class))
     }
@@ -522,6 +529,7 @@ impl<'a> TypeChecker<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
+        lexer::Lexer,
         ppa::symbol_collector::SymbolCollector,
         types::{FloatNode, Identifier, IntNode, SymbolCollection, AST},
     };
@@ -529,7 +537,7 @@ mod tests {
     use super::*;
 
     fn setup_typecheck_errors(input: &[u8]) -> Vec<TypecheckError> {
-        let tokens = crate::lexer::lex(input).expect("Unable to tokenize");
+        let tokens = Lexer::lex(input).expect("Unable to tokenize");
         let mut parser = crate::parser::parser::Parser::new(&tokens);
         let declarations = parser.start().expect("Unable to parse code");
         let mut visitor = SymbolCollector::new();
@@ -666,19 +674,23 @@ mod tests {
 
         assert_eq!(expected, actual);
     }
-    // #[test]
-    // fn mixing_int_and_string() {
-    // let expected = vec![TypecheckError { kind: TEK::BinaryExpressionNotInt(0, 0), span: (17, 20)}];
-    // let actual = setup_typecheck_errors(b"func int foo() { 3 + \"hello\"; };");
-    // TODO: Add a (better) error message to the parser for this case!
-    // assert_eq!(expected, actual);
-    // }
+    #[test]
+    fn mixing_int_and_string() {
+        let expected = vec![TypecheckError {
+            kind: TEK::BinaryExpressionNotInt,
+            span: (35, 36),
+        }];
+        let actual = setup_typecheck_errors(b"func int foo() { var string s; 3 + s; };");
+        assert_eq!(expected, actual);
+    }
 
-    // #[test]
-    // fn mixing_string_and_int() {
-    // let expected = vec![TypecheckError { kind: TEK::BinaryExpressionNotInt, span: (17, 20)}];
-    // let actual = setup_typecheck_errors(b"func int foo() { \"hello\" + 3; };");
-    // TODO: Find a better error message for this one!
-    // assert_eq!(expected, actual);
-    // }
+    #[test]
+    fn mixing_string_and_int() {
+        let expected = vec![TypecheckError {
+            kind: TEK::BinaryExpressionNotInt,
+            span: (31, 32),
+        }];
+        let actual = setup_typecheck_errors(b"func int foo() { var string s; s + 3; };");
+        assert_eq!(expected, actual);
+    }
 }

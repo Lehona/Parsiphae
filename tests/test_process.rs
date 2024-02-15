@@ -1,5 +1,13 @@
+use parsiphae::{
+    config::{Config, InputFile},
+    processor::Parsiphae,
+};
+
 #[test]
 fn test_process_self_contained() {
-    parsiphae::processor::process_single_file("tests/input/self_contained.d")
-        .expect("Unable to process");
+    let config = Config {
+        input_file: InputFile::SingleFile("tests/input/self_contained.d".into()),
+        json: false,
+    };
+    Parsiphae::process(config).expect("Unable to process");
 }

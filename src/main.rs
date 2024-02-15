@@ -1,23 +1,24 @@
 #![allow(dead_code)]
 
-extern crate clap;
-extern crate time;
-
-extern crate parsiphae;
-
 use clap::{App, Arg};
-use std::io::Read;
+use env_logger::Env;
 use time::PreciseTime;
 
-use parsiphae::errors;
+use anyhow::{anyhow, Result};
+use parsiphae::{
+    config::{Config, InputFile},
+    processor::Parsiphae,
+};
 
-fn main() {
+fn main() -> Result<()> {
+    env_logger::Builder::from_env(Env::default().default_filter_or("trace")).init();
+
     let start_time = PreciseTime::now();
 
     let mut exitcode = 0;
     if let Err(ref e) = run() {
         match e {
-            errors::Error::ParsingError { .. } => {
+            _ => {
                 exitcode = 2;
             }
             _ => {
@@ -33,16 +34,22 @@ fn main() {
     }
 
     let ms = start_time.to(PreciseTime::now()).num_milliseconds() as f64;
-    println!("parsing took {} seconds", ms / 1000.0);
+    log::info!("parsing took {} seconds", ms / 1000.0);
 
     ::std::process::exit(exitcode);
 }
 
-fn run() -> errors::Result<()> {
-    let arguments = App::new("Parsiphae (nom)")
+fn run() -> Result<()> {
+    let config = make_config()?;
+    Parsiphae::process(config).unwrap();
+    Ok(())
+}
+
+fn make_config() -> Result<Config> {
+    let arguments = App::new("Parsiphae")
         .version("0.2")
         .author("Leon von Mulert <leonvonmulert@gmail.com")
-        .about("An experimental Daedalus parser using nom")
+        .about("An experimental Daedalus parser")
         .arg(
             Arg::with_name("SRC")
                 .help("Sets the input src to use")
@@ -60,47 +67,28 @@ fn run() -> errors::Result<()> {
                 .required_unless("SRC"),
         )
         .arg(
-            Arg::with_name("HAND")
-                .help("Uses the new hand-written parser")
-                .long("hand"),
+            Arg::with_name("JSON")
+                .help("Whether output should be formatted as JSON")
+                .long("json"),
         )
         .get_matches();
 
-    let d_path = arguments.value_of("INPUT");
-    match d_path {
-        Some(path) => {
-            if arguments.is_present("HAND") {
-                let mut file = ::std::fs::File::open(&path).unwrap();
-
-                let mut content = Vec::new();
-                file.read_to_end(&mut content)?;
-
-                let tokens = crate::parsiphae::lexer::lex(&content);
-
-                match tokens {
-                    Err(e) => println!("Error: {:?}", e),
-                    Ok(tokenlist) => {
-                        // println!("{}", tokenlist.iter().map(|t|t.stringified()).collect::<Vec<_>>().join("\n"));
-                        let mut parser = parsiphae::parser::parser::Parser::new(&tokenlist);
-
-                        let decls = parser.start();
-
-                        if let Err(e) = decls {
-                            println!("{:?}", e);
-                        } else {
-                            println!("Parse successful: {:#?}", decls.unwrap());
-                        }
-                    }
-                }
-            } else {
-                parsiphae::processor::process_single_file(path)?;
-            }
+    let input_file = match (arguments.value_of("INPUT"), arguments.value_of("SRC")) {
+        (Some(_), Some(_)) => {
+            return Err(anyhow!(
+                "You specified both a single file and an SRC to parse, please choose one.\n{}",
+                arguments.usage()
+            ))
         }
-        None => {
-            let path = arguments.value_of("SRC").unwrap();
-            parsiphae::processor::process_src(path)?;
+        (Some(input), _) => InputFile::SingleFile(input.into()),
+        (_, Some(src)) => InputFile::Src(src.into()),
+        (_, _) => {
+            return Err(anyhow!(
+                "You specified neither a single file nor an SRC to parse, please choose one.\n{}",
+                arguments.usage()
+            ))
         }
-    }
-
-    Ok(())
+    };
+    let json = arguments.is_present("JSON");
+    Ok(Config { input_file, json })
 }

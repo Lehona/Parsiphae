@@ -1,9 +1,6 @@
-func void foo foo()
-
-
-// func void foo ( ) {
-//     a = 3+;
-//     return 3
-//     a = 7 + ();
-// };
+func foo ( ) {
+    a = 3+4;
+    return 3
+    a = 7 + ();
+};
 

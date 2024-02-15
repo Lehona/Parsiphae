@@ -1,4 +1,4 @@
-use crate::types::{parsed::zPAR_TYPE, Class, Identifier};
+use crate::types::{parsed::zPAR_TYPE, Identifier};
 
 pub type Result<O> = std::result::Result<O, TypecheckError>;
 type Span = (usize, usize);

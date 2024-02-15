@@ -1,106 +1,119 @@
-use crate::errors::*;
 use glob::glob;
 use std::io::Read;
 use std::path;
 use std::path::{Path, PathBuf};
 
-pub fn parse_src<P: AsRef<Path>>(path: P) -> Result<Vec<PathBuf>> {
-    let mut file = ::std::fs::File::open(&path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+use crate::errors::SrcError;
 
-    let paths = collect_paths(contents, &path)?;
+pub struct SrcParser;
 
-    Ok(paths)
-}
+impl SrcParser {
+    /// Parses an SRC file and resolves all entries to concrete file paths
+    /// (i.e. resolving globs)
+    ///
+    /// # Parameters
+    /// `path`: Path to the .src file
+    ///
+    /// # Return
+    /// List of files included via .src
+    pub fn parse_src<P: AsRef<Path>>(path: P) -> Result<Vec<PathBuf>, SrcError> {
+        let path = path.as_ref();
+        let mut file = ::std::fs::File::open(&path)
+            .map_err(|_| SrcError::new(format!("Unable to open file '{}'.", path.display())))?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .map_err(|_| SrcError::new(format!("Unable to read file '{}'.", path.display())))?;
 
-fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf>> {
-    let path = path.as_ref();
-    let parent = parent_dir(path)?;
-    let dir = parent.to_string_lossy();
+        let paths = Self::collect_paths(contents, &path)?;
 
-    let mut vec = Vec::new();
+        Ok(paths)
+    }
 
-    let lines = content
-        .lines()
-        .filter_map(|line| fix_line(line))
-        .map(|line| format!("{}\\{}", dir, line))
-        .collect::<Vec<String>>();
+    fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf>, SrcError> {
+        let path = path.as_ref();
+        let parent = match path
+            .canonicalize()
+            .map(|can| can.parent().map(|p| p.to_path_buf()))
+            .map_err(|_| {
+                SrcError::new(format!("Unable to canonicalize path '{}'.", path.display()))
+            })? {
+            Some(parent) => parent,
+            None => {
+                return Err(SrcError::new(format!(
+                    "Unable to get parent of path '{}'.",
+                    path.display()
+                )))
+            }
+        };
 
-    for line in lines {
-        let line_normalized = line.replace("\\", &path::MAIN_SEPARATOR.to_string());
-        for entry in glob(&line_normalized).unwrap() {
-            match entry {
-                Ok(path) => {
-                    let extension = {
-                        let extension = match path.extension() {
-                            None => {
-                                println!(
-                                    "invalid extension of path {:?}\nline: {}\ndir: {}",
-                                    &path, &line_normalized, &dir
-                                );
-                                ::std::ffi::OsStr::new("abc")
-                            }
-                            Some(ext) => ext,
-                        };
-                        extension
-                            .to_str()
-                            .expect("found invalid file name")
-                            .to_owned()
-                            .to_uppercase()
-                    };
+        let dir = parent.to_string_lossy();
 
-                    match extension.as_ref() {
-                        "D" => {
-                            vec.push(path);
-                        }
-                        "SRC" => {
-                            let inner_vec = parse_src(path)?;
-                            vec.extend(inner_vec.into_iter());
-                        }
-                        other => {
-                            println!("invalid extension {} in path {:?}", other, path);
-                            return Err(::std::io::Error::new(
-                                ::std::io::ErrorKind::InvalidData,
-                                "Invalid extension",
-                            )
-                            .into());
-                        }
+        let mut result_vector = Vec::new();
+
+        let lines = content
+            .lines()
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.starts_with("//"))
+            .filter(|line| !line.is_empty())
+            .map(|line| format!("{}\\{}", dir, line))
+            .collect::<Vec<String>>();
+
+        for line in lines {
+            let line_normalized = line.replace("\\", &path::MAIN_SEPARATOR.to_string());
+
+            let entries = glob(&line_normalized)
+                .map_err(|_| SrcError::new(format!("Invalid line in Src: {line_normalized}")))?
+                .map(|entry| {
+                    entry.map_err(|e| {
+                        SrcError::new(format!("Error reading file: {}", e.path().display()))
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            for entry in entries {
+                let extension = match entry
+                    .extension()
+                    .map(|s| s.as_encoded_bytes().to_ascii_lowercase())
+                {
+                    None => {
+                        log::warn!("Path '{}' has no extension, assuming '.d'.", path.display());
+                        "d"
                     }
-                }
+                    Some(ext) if ext == b"src" => "src",
+                    Some(ext) if ext == b"d" => "d",
+                    Some(_) => {
+                        return Err(SrcError::new(format!(
+                            "Path '{}' has invalid extension.",
+                            path.display()
+                        ))
+                        .into())
+                    }
+                };
 
-                // if the path matched but was unreadable,
-                // thereby preventing its contents from matching
-                Err(e) => println!("{:?}", e),
+                match extension {
+                    "src" => result_vector.extend(Self::parse_src(path)?),
+                    "d" => result_vector.push(path.to_path_buf()),
+                    _ => unreachable!(),
+                }
             }
         }
+        Ok(result_vector)
     }
-
-    Ok(vec)
 }
 
-fn parent_dir(path: &Path) -> Result<PathBuf> {
-    let parent_path = if path.is_relative() {
-        let mut absolute_path = ::std::env::current_dir()?;
-        absolute_path.push(path);
-        absolute_path.parent().map(|p| p.to_owned())
-    } else {
-        path.parent().map(|p| p.to_owned())
-    };
+#[cfg(test)]
+mod tests {
+    use crate::errors::SrcError;
 
-    parent_path.ok_or(
-        ::std::io::Error::new(
-            ::std::io::ErrorKind::NotFound,
-            "Unable to get parent directory",
-        )
-        .into(),
-    )
-}
+    use super::SrcParser;
+    #[test]
+    fn empty_src() -> Result<(), SrcError> {
+        let input = String::new();
+        let output = SrcParser::collect_paths(input, String::from("."))?;
 
-fn fix_line(line: &str) -> Option<&str> {
-    let fixed = line.split("//").next().unwrap().trim();
-    if fixed.is_empty() {
-        return None;
+        assert!(output.is_empty());
+        Ok(())
     }
-    Some(fixed)
+
+    // TODO: Write more tests :^) Need to point into repo because glob will attempt to resolve paths.
 }

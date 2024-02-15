@@ -199,7 +199,7 @@ impl crate::parser::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::lex;
+    use crate::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::types::{
         Expression, FloatNode, Identifier, IntNode, Statement, StringLiteral, UnaryExpression,
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn int_foo_decl() {
-        let lexed = lex(b"var int foo;");
+        let lexed = Lexer::lex(b"var int foo;");
         let expected = vec![VarDeclaration::new(
             Identifier::new(b"int", (4, 7)),
             Identifier::new(b"foo", (8, 11)),
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn single_int_foo_decl() {
-        let lexed = lex(b"var int foo");
+        let lexed = Lexer::lex(b"var int foo");
         let expected = VarDeclaration::new(
             Identifier::new(b"int", (4, 7)),
             Identifier::new(b"foo", (8, 11)),
@@ -238,7 +238,7 @@ mod tests {
     }
     #[test]
     fn int_array_size() {
-        let lexed = lex(b"[13]");
+        let lexed = Lexer::lex(b"[13]");
         let expected = ArraySizeDeclaration::Size(13);
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn identifier_array_size() {
-        let lexed = lex(b"[MAX]");
+        let lexed = Lexer::lex(b"[MAX]");
         let expected = ArraySizeDeclaration::Identifier(Identifier::new(b"MAX", (1, 4)));
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -270,7 +270,7 @@ mod tests {
             init,
             (0, 17),
         );
-        let lexed = lex(b"const int foo = 5").unwrap();
+        let lexed = Lexer::lex(b"const int foo = 5").unwrap();
         let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
 
@@ -289,7 +289,7 @@ mod tests {
             init,
             (0, 17),
         );
-        let lexed = lex(b"CONST int foo= 14").unwrap();
+        let lexed = Lexer::lex(b"CONST int foo= 14").unwrap();
         let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
 
@@ -312,7 +312,7 @@ mod tests {
             init,
             (0, 20),
         );
-        let lexed = lex(b"CONST zCVob foo = !5").unwrap();
+        let lexed = Lexer::lex(b"CONST zCVob foo = !5").unwrap();
         let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstDeclaration(decl), actual);
@@ -347,7 +347,7 @@ mod tests {
             (0, 31),
         );
 
-        let lexed = lex(b"const int foo [ 3 ] = {5,6,+12}").unwrap();
+        let lexed = Lexer::lex(b"const int foo [ 3 ] = {5,6,+12}").unwrap();
         let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstArrayDeclaration(decl), actual);
@@ -382,7 +382,7 @@ mod tests {
             (0, 40),
         );
 
-        let lexed = lex(b"const int foo [ MAX_SIZE ] = {5, 6, +12}").unwrap();
+        let lexed = Lexer::lex(b"const int foo [ MAX_SIZE ] = {5, 6, +12}").unwrap();
         let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstArrayDeclaration(decl), actual);
@@ -414,7 +414,7 @@ mod tests {
             (0, 47),
         );
 
-        let lexed = lex(b"const int foo[ MAX_SIZE ] = {\"hello\", 6.0, +12}").unwrap();
+        let lexed = Lexer::lex(b"const int foo[ MAX_SIZE ] = {\"hello\", 6.0, +12}").unwrap();
         let mut parser = Parser::new(&lexed);
         let actual = parser.const_decl_stmt().unwrap();
         assert_eq!(Statement::ConstArrayDeclaration(decl), actual);
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn simple_class() {
-        let lexed = lex(b"class foo {var int bar;}").unwrap();
+        let lexed = Lexer::lex(b"class foo {var int bar;}").unwrap();
         let expected = Class {
             name: Identifier::new(b"foo", (6, 9)),
             members: vec![VarDeclaration::new(
@@ -439,7 +439,7 @@ mod tests {
     }
     #[test]
     fn empty_class() {
-        let lexed = lex(b"class foo {}").unwrap();
+        let lexed = Lexer::lex(b"class foo {}").unwrap();
         let expected = Class {
             name: Identifier::new(b"foo", (6, 9)),
             members: Vec::new(),
@@ -452,7 +452,7 @@ mod tests {
 
     // #[test]
     // fn error_in_class() {
-    //     let lexed = lex(b"class foo { foo foo foo }");
+    //     let lexed = Lexer::lex(b"class foo { foo foo foo }");
     //     let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Var), (12,15), true);
     //     let mut parser = Parser::new(&lexed.unwrap());
     //     let actual = parser.class_decl().unwrap_err();
@@ -462,7 +462,7 @@ mod tests {
 
     // #[test]
     // fn incomplete_var_decl_in_class() {
-    //     let lexed = lex(b"class foo { var foo }");
+    //     let lexed = Lexer::lex(b"class foo { var foo }");
     //     let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Identifier(vec![])), (20,21), true);
     //     let mut parser = Parser::new(&lexed.unwrap());
     //     let actual = parser.class_decl().unwrap_err();
@@ -472,7 +472,7 @@ mod tests {
 
     // #[test]
     // fn incomplete_func_decl() {
-    //     let lexed = lex(b"func void () {}");
+    //     let lexed = Lexer::lex(b"func void () {}");
     //     let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Identifier(vec![])), (10,11), true);
     //     let mut parser = Parser::new(&lexed.unwrap());
     //     let actual = parser.func_decl().unwrap_err();

@@ -236,7 +236,7 @@ impl crate::parser::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::lex;
+    use crate::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::types::{Call, Identifier, IntNode, StringLiteral, VarAccess};
 
@@ -244,7 +244,7 @@ mod tests {
         ($name:ident, $input:literal = $output:literal) => {
             #[test]
             fn $name() {
-                let lexed = lex($input).unwrap();
+                let lexed = Lexer::lex($input).unwrap();
                 println!("Lexed as: {:#?}", lexed);
                 let mut parser = Parser::new(&lexed);
                 let expr = parser.expression().unwrap();
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn no_param() {
-        let lexed = lex(b"foo()");
+        let lexed = Lexer::lex(b"foo()");
         let expected = Call {
             func: Identifier::new(b"foo", (0, 3)),
             params: Vec::new(),
@@ -307,7 +307,7 @@ mod tests {
 
     #[test]
     fn single_int_param() {
-        let lexed = lex(b"foo(3)");
+        let lexed = Lexer::lex(b"foo(3)");
         let expected = Call {
             func: Identifier::new(b"foo", (0, 3)),
             params: vec![Expression::Int(IntNode {
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn multi_mixed_params() {
-        let lexed = lex(b"foo(3, \"hello\")");
+        let lexed = Lexer::lex(b"foo(3, \"hello\")");
         let expected = Call {
             func: Identifier::new(b"foo", (0, 3)),
             params: vec![
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn simple() {
-        let lexed = lex(b"foo");
+        let lexed = Lexer::lex(b"foo");
         let expected = VarAccess::new(Identifier::new(b"foo", (0, 3)), None, None, (0, 3));
 
         let mut parser = Parser::new(&lexed.unwrap());
@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn instance() {
-        let lexed = lex(b"foo.bar");
+        let lexed = Lexer::lex(b"foo.bar");
         let expected = VarAccess::new(
             Identifier::new(b"foo", (0, 3)),
             Some(Identifier::new(b"bar", (4, 7))),
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn simple_array_int() {
-        let lexed = lex(b"foo[3]");
+        let lexed = Lexer::lex(b"foo[3]");
         let expected = VarAccess::new(
             Identifier::new(b"foo", (0, 3)),
             None,
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn instance_array_int() {
-        let lexed = lex(b"foo.bar[3]");
+        let lexed = Lexer::lex(b"foo.bar[3]");
         let expected = VarAccess::new(
             Identifier::new(b"foo", (0, 3)),
             Some(Identifier::new(b"bar", (4, 7))),
@@ -447,7 +447,7 @@ mod tests {
     // TODO fix tests
     //     #[test]
     //     fn empty_array_index() {
-    //         let lexed = lex(b"foo[]");
+    //         let lexed = Lexer::lex(b"foo[]");
     //         let expected = ParsingError::from_span(PEK::Expected(PP::Expression), (4,5), false);
     //         let mut parser = Parser::new(&lexed.unwrap());
     //         let actual = parser.expression().unwrap_err();
@@ -457,7 +457,7 @@ mod tests {
 
     //     #[test]
     //     fn missing_member() {
-    //         let lexed = lex(b"foo.");
+    //         let lexed = Lexer::lex(b"foo.");
     //         let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::Identifier(vec![])), (4,4), false);
     //         let mut parser = Parser::new(&lexed.unwrap());
     //         let actual = parser.expression().unwrap_err();
@@ -467,7 +467,7 @@ mod tests {
 
     //     #[test]
     //     fn missing_paren() {
-    //         let lexed = lex(b"3+(4");
+    //         let lexed = Lexer::lex(b"3+(4");
     //         let expected = ParsingError::from_span(PEK::ExpectedToken(TokenKind::ParenClose), (4,4), false);
     //         let mut parser = Parser::new(&lexed.unwrap());
     //         let actual = parser.expression().unwrap_err();
@@ -477,7 +477,7 @@ mod tests {
 
     //     #[test]
     //     fn empty_paren() {
-    //         let lexed = lex(b"3+()");
+    //         let lexed = Lexer::lex(b"3+()");
     //         let expected = ParsingError::from_span(PEK::Expected(PP::Expression), (3,4), false);
     //         let mut parser = Parser::new(&lexed.unwrap());
     //         let actual = parser.expression().unwrap_err();
@@ -487,7 +487,7 @@ mod tests {
 
     //     #[test]
     //     fn double_operator() {
-    //         let lexed = lex(b"3**4");
+    //         let lexed = Lexer::lex(b"3**4");
     //         let expected = ParsingError::from_span(PEK::ExpectedOneOf(vec![PP::Call, PP::VariableAccess, PP::Integer, PP::Decimal]), (2,3), false);
     //         let mut parser = Parser::new(&lexed.unwrap());
     //         let actual = parser.expression().unwrap_err();

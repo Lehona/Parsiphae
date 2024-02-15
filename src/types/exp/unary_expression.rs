@@ -3,7 +3,6 @@ use crate::parser::errors::{ParsingError, Result as PResult};
 use crate::types::{Expression, UnaryOperator};
 use anyhow::Result;
 use std::convert::TryInto;
-use std::net::UdpSocket;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryExpression {

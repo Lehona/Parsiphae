@@ -19,7 +19,7 @@ impl Statement {
             Statement::Exp(e) => e.get_span(),
             Statement::Ass(a) => a.span,
             Statement::If(i) => i.span,
-            Statement::VarDeclarations(v) => (0, 0), // TODO implement
+            Statement::VarDeclarations(_v) => todo!(),
             Statement::ConstDeclaration(c) => c.span,
             Statement::ConstArrayDeclaration(c) => c.span,
             Statement::ReturnStatement(r) => r.span,

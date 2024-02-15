@@ -122,7 +122,7 @@ impl crate::parser::parser::Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::lex;
+    use crate::lexer::Lexer;
     use crate::parser::parser::Parser;
     use crate::types::{
         Assignment, AssignmentOperator, Expression, Identifier, IntNode, Statement, VarAccess,
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn empty_void() {
-        let lexed = lex(b"func void foo() {}").unwrap();
+        let lexed = Lexer::lex(b"func void foo() {}").unwrap();
         let expected = Function {
             typ: Identifier::new(b"void", (5, 9)),
             name: Identifier::new(b"foo", (10, 13)),
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn params_empty_body() {
-        let lexed = lex(b"func void foo(var int bar) {}").unwrap();
+        let lexed = Lexer::lex(b"func void foo(var int bar) {}").unwrap();
         let expected = Function {
             typ: Identifier::new(b"void", (5, 9)),
             name: Identifier::new(b"foo", (10, 13)),
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn multi_params_empty_body() {
-        let lexed = lex(b"func void foo(var int bar, var int baz) {}").unwrap();
+        let lexed = Lexer::lex(b"func void foo(var int bar, var int baz) {}").unwrap();
         let expected = Function {
             typ: Identifier::new(b"void", (5, 9)),
             name: Identifier::new(b"foo", (10, 13)),
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn body() {
-        let lexed = lex(b"func void foo() {3;}").unwrap();
+        let lexed = Lexer::lex(b"func void foo() {3;}").unwrap();
         let expected = Function {
             typ: Identifier::new(b"void", (5, 9)),
             name: Identifier::new(b"foo", (10, 13)),
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn simple_proto() {
-        let lexed = lex(b"prototype foo (bar) {}");
+        let lexed = Lexer::lex(b"prototype foo (bar) {}");
         let expected = Prototype {
             name: Identifier::new(b"foo", (10, 13)),
             class: Identifier::new(b"bar", (15, 18)),
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn init_proto() {
-        let lexed = lex(b"prototype foo (bar) {name=3;}");
+        let lexed = Lexer::lex(b"prototype foo (bar) {name=3;}");
         let expected = Prototype {
             name: Identifier::new(b"foo", (10, 13)),
             class: Identifier::new(b"bar", (15, 18)),
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn simple_inst() {
-        let lexed = lex(b"instance foo (bar) {}");
+        let lexed = Lexer::lex(b"instance foo (bar) {}");
         let expected = Instance {
             name: Identifier::new(b"foo", (9, 12)),
             class: Identifier::new(b"bar", (14, 17)),
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn init_inst() {
-        let lexed = lex(b"instance foo (bar) {name=3;}");
+        let lexed = Lexer::lex(b"instance foo (bar) {name=3;}");
         let expected = Instance {
             name: Identifier::new(b"foo", (9, 12)),
             class: Identifier::new(b"bar", (14, 17)),
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn no_init_inst() {
-        let lexed = lex(b"instance foo (bar)");
+        let lexed = Lexer::lex(b"instance foo (bar)");
         let expected = Instance {
             name: Identifier::new(b"foo", (9, 12)),
             class: Identifier::new(b"bar", (14, 17)),
