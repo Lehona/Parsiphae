@@ -10,3 +10,4 @@ After downloading or building Parsiphae, call `parsiphae.exe --src "path\to\Goth
 * Make sure that errors in typechecking are recoverable where possible.
 * Remove unwrap in main
 * String literals that are used incorrectly in expressions fail to parse, which leads to bad error messages.
+* Typechecking compares zPAR_TYPE, which does case-sensitive comparisons of non-primitive types

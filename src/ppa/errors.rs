@@ -12,13 +12,16 @@ pub enum TypecheckErrorKind {
     UnknownReturnType(Identifier), // Return Type is an unknown symbol
     UnknownParameterType(Identifier), // Parameter type is an unknown symbol
     UnknownFunctionCall(Identifier), // Tries to call an unknown function
+    UnknownVariableType(Identifier), // Variable type is an unknown symbol
     FunctionCallWrongType(Identifier, SymbolKind), // Tries to call symbol that is not a function
     UnknownIdentifierInExpression(Identifier), // Tries to use an unknown identifier in an expression
     IdentifierIsClassInExpression(Identifier), // The identifier in an expression is known but a class
     FunctionCallParameterWrongType(zPAR_TYPE, zPAR_TYPE), // Parameter has type 1 but Expression has type 2
+    FunctionCallWrongAmountOfParameters(usize, usize),    // Expected parameters, actual parameters
     BinaryExpressionNotInt,
     UnaryExpressionNotInt,
     AssignmentWrongTypes(zPAR_TYPE, Span, zPAR_TYPE, Span), // Left type and left side span, right type and right side span
+    WrongTypeInArrayInitialization(zPAR_TYPE, Span, zPAR_TYPE, Span), // Left type and left side span, right type and right side span
     CanOnlyAssignToString, // String does not support anything besides Assignment (no +=, *=, ...)
     CanOnlyAssignToFloat,  // Float does not support anything besides Assignment (no +=, *=, ...)
     CanOnlyAssignToInstance, // Instances do not support anything besides Assignment (no +=, *=, ...)
@@ -31,10 +34,20 @@ pub enum TypecheckErrorKind {
     ArraySizeIsNotInteger(zPAR_TYPE, Span), // Array Size is an Identifier of wrong type, Identifier defined at 2
     InstanceHasUnknownParent(Identifier),
     InstanceParentNotClassOrProto(Identifier, SymbolKind), // The parent 1 is not a class or prototype, instead the symbol is kind 2
+    IdentifierIsNotType(Identifier), // An identifier is used in type-position, but is not actually a type.
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypecheckError {
     pub kind: TypecheckErrorKind,
     pub span: Span,
+}
+
+impl TypecheckError {
+    pub fn not_a_type(identifier: Identifier) -> Self {
+        Self {
+            span: identifier.span,
+            kind: TypecheckErrorKind::IdentifierIsNotType(identifier),
+        }
+    }
 }

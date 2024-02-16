@@ -1,14 +1,24 @@
 use crate::types::parsed::{self, zPAR_TYPE};
-use crate::types::{self, AssignmentOperator, IfStatement, Statement, VarAccess};
+use crate::types::{
+    self, AssignmentOperator, ConstArrayDeclaration, ConstDeclaration, Identifier, IfStatement,
+    Statement, VarAccess,
+};
 
 use super::errors::{TypecheckError, TypecheckErrorKind as TEK};
 
 // Functions return Err(()) when they cannot reasonably continue typechecking, e.g. 3 + "foo" embedded within an expression
 type TCResult<T> = Result<T, ()>;
 
+pub enum IsType {
+    UnknownIdentifier,
+    NotType,
+    IsType,
+}
+
 pub struct TypeChecker<'a> {
     parsed_syms: &'a types::SymbolCollection,
     errors: Vec<TypecheckError>,
+    warnings: Vec<String>, // TODO: Change type once we have warnings to emit ;D
 }
 
 impl<'a> TypeChecker<'a> {
@@ -16,6 +26,7 @@ impl<'a> TypeChecker<'a> {
         TypeChecker {
             parsed_syms: input,
             errors: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 
@@ -36,11 +47,18 @@ impl<'a> TypeChecker<'a> {
                     self.typecheck_prototype(proto)?;
                 }
                 Var(decl, None) => {
-                    // Only check unscoped Variables, all other variables will be typechecked as part of other stuff anyway
                     self.typecheck_var_decl(decl, None)?;
                 }
-                Var(_decl, Some(_scope)) => {}
-                _ => todo!(),
+                Const(decl, None) => {
+                    self.typecheck_const_decl(decl, None)?;
+                }
+                ConstArray(decl, None) => {
+                    self.typecheck_const_array_decl(decl, None)?;
+                }
+                Var(_, Some(_)) | Const(_, Some(_)) | ConstArray(_, Some(_)) => {
+                    // Intentionally left blank, only typecheck symbols at the top level
+                    // Everything else will be typechecked by other symbols
+                }
             }
         }
 
@@ -51,7 +69,7 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn is_type(&self, typ: &types::Identifier) -> bool {
+    fn is_type(&self, typ: &Identifier) -> IsType {
         lazy_static! {
             static ref PRIMITIVES: &'static [&'static [u8]] =
                 &[b"int", b"void", b"string", b"float"];
@@ -59,7 +77,7 @@ impl<'a> TypeChecker<'a> {
         let ident = typ.as_bytes();
         for primitive in PRIMITIVES.iter() {
             if ident.eq_ignore_ascii_case(primitive) {
-                return true;
+                return IsType::IsType;
             }
         }
 
@@ -67,32 +85,43 @@ impl<'a> TypeChecker<'a> {
             match sym {
                 parsed::Symbol::Class(ref class) => {
                     if ident.eq_ignore_ascii_case(class.name.as_bytes()) {
-                        return true;
+                        return IsType::IsType;
                     }
                 }
                 _ => {}
             }
         }
 
-        return false;
+        // We assume that types are never in a scope. I don't actually know whether this is allowed in Daedalus?
+        if self.parsed_syms.lookup_symbol(typ, None).is_some() {
+            IsType::NotType
+        } else {
+            IsType::UnknownIdentifier
+        }
     }
 
     fn typecheck_func(&mut self, decl: &types::Function) {
-        if !self.is_type(&decl.typ) {
-            let err = TypecheckError {
+        match self.is_type(&decl.typ) {
+            IsType::UnknownIdentifier => self.errors.push(TypecheckError {
                 kind: TEK::UnknownReturnType(decl.typ.clone()),
                 span: decl.typ.span,
-            };
-            self.errors.push(err);
+            }),
+            IsType::NotType => self
+                .errors
+                .push(TypecheckError::not_a_type(decl.typ.clone())),
+            IsType::IsType => {}
         }
 
         for param in &decl.params {
-            if !self.is_type(&param.typ) {
-                let err = TypecheckError {
+            match self.is_type(&param.typ) {
+                IsType::UnknownIdentifier => self.errors.push(TypecheckError {
                     kind: TEK::UnknownParameterType(param.typ.clone()),
                     span: param.typ.span,
-                };
-                self.errors.push(err);
+                }),
+                IsType::NotType => self
+                    .errors
+                    .push(TypecheckError::not_a_type(decl.typ.clone())),
+                IsType::IsType => {}
             }
         }
 
@@ -105,7 +134,7 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_statement(
         &mut self,
         statement: &types::Statement,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<()> {
         match statement {
             Statement::Exp(ref exp) => {
@@ -125,7 +154,12 @@ impl<'a> TypeChecker<'a> {
                     self.typecheck_var_decl(decl, scope)?;
                 }
             }
-            _ => unimplemented!(), // TODO
+            Statement::ConstDeclaration(decl) => {
+                self.typecheck_const_decl(decl, scope)?;
+            }
+            Statement::ConstArrayDeclaration(decl) => {
+                self.typecheck_const_array_decl(decl, scope)?;
+            }
         }
         Ok(())
     }
@@ -133,7 +167,7 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_var_access(
         &mut self,
         var: &VarAccess,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<zPAR_TYPE> {
         // TODO: Check array access / index etc.
         if let Some(ref _inst) = var.instance {
@@ -172,7 +206,7 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_expression(
         &mut self,
         exp: &types::Expression,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<zPAR_TYPE> {
         use crate::types::Expression::*;
         match exp {
@@ -180,8 +214,7 @@ impl<'a> TypeChecker<'a> {
             Float(_) => return Ok(zPAR_TYPE::Float),
             String(_) => return Ok(zPAR_TYPE::String),
             Call(ref call) => {
-                let target = self.parsed_syms.lookup_symbol(&call.func, None);
-                let target = match target {
+                let target = match self.parsed_syms.lookup_symbol(&call.func, None) {
                     None => {
                         self.errors.push(TypecheckError {
                             kind: TEK::UnknownFunctionCall(call.func.clone()),
@@ -201,15 +234,24 @@ impl<'a> TypeChecker<'a> {
                     },
                 };
 
-                // TODO account for incorrect number of parameters
-                for (i, param) in call.params.iter().enumerate() {
-                    let expected = zPAR_TYPE::from_ident(&target.params[i].typ);
-                    let actual = self.typecheck_expression(&param, scope)?;
+                if target.params.len() != call.params.len() {
+                    self.errors.push(TypecheckError {
+                        kind: TEK::FunctionCallWrongAmountOfParameters(
+                            target.params.len(),
+                            call.params.len(),
+                        ),
+                        span: call.span,
+                    })
+                }
+
+                for (call_param, target_param) in call.params.iter().zip(target.params.iter()) {
+                    let expected = zPAR_TYPE::from_ident(&target_param.typ);
+                    let actual = self.typecheck_expression(&call_param, scope)?;
 
                     if expected != actual {
                         self.errors.push(TypecheckError {
                             kind: TEK::FunctionCallParameterWrongType(expected, actual),
-                            span: param.get_span(),
+                            span: call_param.get_span(),
                         });
                     }
                 }
@@ -260,7 +302,7 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_assignment(
         &mut self,
         ass: &types::Assignment,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<zPAR_TYPE> {
         let left_type = self.typecheck_var_access(&ass.var, scope)?;
         let right_type = self.typecheck_expression(&ass.exp, scope)?;
@@ -309,7 +351,7 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_if_clause(
         &mut self,
         if_clause: &IfStatement,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<()> {
         for branch in &if_clause.branches {
             let cond_type = match self.typecheck_expression(&branch.cond, scope) {
@@ -341,7 +383,7 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_return(
         &mut self,
         ret: &types::ReturnStatement,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<()> {
         match scope {
             Some(func_name) => {
@@ -412,6 +454,7 @@ impl<'a> TypeChecker<'a> {
 
     fn typecheck_class(&mut self, class: &types::Class) -> TCResult<()> {
         for decl in &class.members {
+            // Even if  one decl fails the typecheck we can continue checking others.
             let _ = self.typecheck_var_decl(decl, Some(&class.name));
         }
 
@@ -421,10 +464,22 @@ impl<'a> TypeChecker<'a> {
     fn typecheck_var_decl(
         &mut self,
         decl: &types::VarDeclaration,
-        scope: Option<&types::Identifier>,
+        scope: Option<&Identifier>,
     ) -> TCResult<zPAR_TYPE> {
-        // TODO clean this up
-        // TODO check whether is_type(decl.typ)
+        // Dadealus doesn't really have the concept of array-types,
+        // hence we return e.g. `int` even if the actual type of `var int foo[30]`
+        // should be foo[]. Maybe this could be improved in the future?
+        match self.is_type(&decl.typ) {
+            IsType::UnknownIdentifier => self.errors.push(TypecheckError {
+                kind: TEK::UnknownVariableType(decl.typ.clone()),
+                span: decl.typ.span,
+            }),
+            IsType::NotType => self
+                .errors
+                .push(TypecheckError::not_a_type(decl.typ.clone())),
+            IsType::IsType => {}
+        }
+
         match &decl.array_size {
             Some(types::ArraySizeDeclaration::Identifier(constant)) => {
                 match self.parsed_syms.lookup_symbol(&constant, scope) {
@@ -522,6 +577,127 @@ impl<'a> TypeChecker<'a> {
             self.typecheck_statement(statement, Some(scope))?;
         }
         Ok(zPAR_TYPE::from_ident(&inst.class))
+    }
+
+    fn typecheck_const_decl(
+        &mut self,
+        decl: &ConstDeclaration,
+        scope: Option<&Identifier>,
+    ) -> TCResult<zPAR_TYPE> {
+        match self.is_type(&decl.typ) {
+            IsType::NotType => {
+                self.errors
+                    .push(TypecheckError::not_a_type(decl.typ.clone()));
+                return Err(());
+            }
+            IsType::UnknownIdentifier => {
+                self.errors.push(TypecheckError {
+                    kind: TEK::UnknownVariableType(decl.typ.clone()),
+                    span: decl.typ.span,
+                });
+                return Err(());
+            }
+            IsType::IsType => {}
+        }
+
+        let expression_type = self.typecheck_expression(&decl.initializer, scope)?;
+        let decl_type = zPAR_TYPE::from_ident(&decl.typ);
+        if expression_type != decl_type {
+            self.errors.push(TypecheckError {
+                kind: TEK::AssignmentWrongTypes(
+                    decl_type.clone(),
+                    decl.typ.span,
+                    expression_type,
+                    decl.initializer.get_span(),
+                ),
+                span: decl.span,
+            })
+        }
+
+        Ok(decl_type)
+    }
+
+    fn typecheck_const_array_decl(
+        &mut self,
+        decl: &ConstArrayDeclaration,
+        scope: Option<&Identifier>,
+    ) -> TCResult<zPAR_TYPE> {
+        match self.is_type(&decl.typ) {
+            IsType::NotType => {
+                self.errors
+                    .push(TypecheckError::not_a_type(decl.typ.clone()));
+                return Err(());
+            }
+            IsType::UnknownIdentifier => {
+                self.errors.push(TypecheckError {
+                    kind: TEK::UnknownVariableType(decl.typ.clone()),
+                    span: decl.typ.span,
+                });
+                return Err(());
+            }
+            IsType::IsType => {}
+        }
+
+        match &decl.array_size {
+            types::ArraySizeDeclaration::Identifier(constant) => {
+                match self.parsed_syms.lookup_symbol(&constant, scope) {
+                    Some(symb) => match symb {
+                        parsed::Symbol::Const(const_decl, _) => {
+                            let const_type = zPAR_TYPE::from_ident(&const_decl.typ);
+                            if const_type != zPAR_TYPE::Int {
+                                self.errors.push(TypecheckError {
+                                    kind: TEK::ArraySizeIsNotInteger(const_type, const_decl.span),
+                                    span: constant.span,
+                                });
+                            }
+                        }
+                        _ => {
+                            self.errors.push(TypecheckError {
+                                kind: TEK::NonConstantArraySize,
+                                span: constant.span,
+                            }); // TODO Add symbol kind to error msg
+                        }
+                    },
+                    None => {
+                        self.errors.push(TypecheckError {
+                            kind: TEK::UnknownIdentifierInArraySize(constant.clone()),
+                            span: constant.span,
+                        });
+                    }
+                }
+            }
+            types::ArraySizeDeclaration::Size(i) if *i > 256 => {
+                // TODO add warning about array size here
+            }
+            _ => {}
+        }
+
+        let decl_type = zPAR_TYPE::from_ident(&decl.typ);
+        for init_expression in &decl.initializer.expressions {
+            // continue type checking other expressions
+            let init_type = match self.typecheck_expression(&init_expression, scope) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+
+            if init_type != decl_type {
+                self.errors.push(TypecheckError {
+                    kind: TEK::WrongTypeInArrayInitialization(
+                        decl_type.clone(),
+                        decl.typ.span,
+                        init_type,
+                        init_expression.get_span(),
+                    ),
+                    span: decl.span,
+                })
+            }
+        }
+
+        // TODO: Make sure that initializer size and declared array size match.
+        //       This requires evaluation of expressions if possible, and resolving
+        //       of constants. We need constant resolving without endlessly looping.
+
+        Ok(decl_type)
     }
 }
 
@@ -691,6 +867,41 @@ mod tests {
             span: (31, 32),
         }];
         let actual = setup_typecheck_errors(b"func int foo() { var string s; s + 3; };");
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn wrong_const_decl() {
+        let expected = vec![TypecheckError {
+            kind: TEK::AssignmentWrongTypes(zPAR_TYPE::Int, (6, 9), zPAR_TYPE::String, (16, 19)),
+            span: (0, 20),
+        }];
+        let actual = setup_typecheck_errors(b"const int foo = \"3\";");
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn const_decl_unknown_type() {
+        let expected = vec![TypecheckError {
+            kind: TEK::UnknownVariableType(Identifier::new(b"baz", (6, 9))),
+            span: (6, 9),
+        }];
+        let actual = setup_typecheck_errors(b"const baz foo = \"3\";");
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn wrong_const_array_decl() {
+        let expected = vec![TypecheckError {
+            kind: TEK::WrongTypeInArrayInitialization(
+                zPAR_TYPE::Int,
+                (6, 9),
+                zPAR_TYPE::String,
+                (23, 26),
+            ),
+            span: (0, 32),
+        }];
+        let actual = setup_typecheck_errors(b"const int foo[3] = {1, \"2\", 3 };");
         assert_eq!(expected, actual);
     }
 }

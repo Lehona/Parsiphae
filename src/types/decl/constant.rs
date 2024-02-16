@@ -53,7 +53,7 @@ impl ConstArrayDeclaration {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstArrayInitializer {
-    expressions: Vec<Expression>,
+    pub expressions: Vec<Expression>,
     pub span: (usize, usize),
 }
 
