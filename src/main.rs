@@ -20,29 +20,33 @@ fn main() -> Result<()> {
         match e {
             _ => {
                 exitcode = 2;
-            }
-            _ => {
-                use std::io::Write;
-                let stderr = &mut ::std::io::stderr();
-                let errmsg = "Error writing to stderr";
+            } // _ => {
+              //     use std::io::Write;
+              //     let stderr = &mut std::io::stderr();
+              //     let errmsg = "Error writing to stderr";
 
-                writeln!(stderr, "error: {:#?}", e).expect(errmsg);
+              //     writeln!(stderr, "error: {:#?}", e).expect(errmsg);
 
-                ::std::process::exit(1);
-            }
+              //     std::process::exit(1);
+              // }
         }
     }
 
     let ms = start_time.to(PreciseTime::now()).num_milliseconds() as f64;
     log::info!("parsing took {} seconds", ms / 1000.0);
 
-    ::std::process::exit(exitcode);
+    std::process::exit(exitcode);
 }
 
 fn run() -> Result<()> {
     let config = make_config()?;
-    Parsiphae::process(config).unwrap();
-    Ok(())
+    let mut parsiphae = Parsiphae::new(config);
+    if let Err(e) = parsiphae.process() {
+        e.render(&parsiphae.config, &parsiphae.file_db);
+        Err(anyhow!("Pipeline failed"))
+    } else {
+        Ok(())
+    }
 }
 
 fn make_config() -> Result<Config> {

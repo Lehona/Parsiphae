@@ -22,11 +22,18 @@ impl ::std::fmt::Debug for StringLiteral {
         write!(f, "{:?}", self.span)
     }
 }
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Identifier {
     pub name: PrintableByteVec,
     pub span: (usize, usize),
 }
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+impl Eq for Identifier {}
 
 impl Identifier {
     pub fn new(name: &[u8], span: (usize, usize)) -> Self {

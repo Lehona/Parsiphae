@@ -1,9 +1,9 @@
 use glob::glob;
 use std::io::Read;
-use std::path;
+
 use std::path::{Path, PathBuf};
 
-use crate::errors::SrcError;
+use crate::errors::{PipelineFailure, SrcError};
 
 pub struct SrcParser;
 
@@ -16,33 +16,33 @@ impl SrcParser {
     ///
     /// # Return
     /// List of files included via .src
-    pub fn parse_src<P: AsRef<Path>>(path: P) -> Result<Vec<PathBuf>, SrcError> {
+    pub fn parse_src<P: AsRef<Path>>(path: P) -> Result<Vec<PathBuf>, PipelineFailure> {
         let path = path.as_ref();
-        let mut file = ::std::fs::File::open(&path)
-            .map_err(|_| SrcError::new(format!("Unable to open file '{}'.", path.display())))?;
+        let mut file = ::std::fs::File::open(path)?;
         let mut contents = String::new();
-        file.read_to_string(&mut contents)
-            .map_err(|_| SrcError::new(format!("Unable to read file '{}'.", path.display())))?;
+        file.read_to_string(&mut contents)?;
 
-        let paths = Self::collect_paths(contents, &path)?;
+        let paths = Self::collect_paths(contents, path)?;
 
         Ok(paths)
     }
 
-    fn collect_paths<P: AsRef<Path>>(content: String, path: P) -> Result<Vec<PathBuf>, SrcError> {
+    fn collect_paths<P: AsRef<Path>>(
+        content: String,
+        path: P,
+    ) -> Result<Vec<PathBuf>, PipelineFailure> {
         let path = path.as_ref();
         let parent = match path
             .canonicalize()
-            .map(|can| can.parent().map(|p| p.to_path_buf()))
-            .map_err(|_| {
-                SrcError::new(format!("Unable to canonicalize path '{}'.", path.display()))
-            })? {
+            .map(|can| can.parent().map(|p| p.to_path_buf()))?
+        {
             Some(parent) => parent,
             None => {
                 return Err(SrcError::new(format!(
                     "Unable to get parent of path '{}'.",
                     path.display()
-                )))
+                ))
+                .into())
             }
         };
 
@@ -59,7 +59,7 @@ impl SrcParser {
             .collect::<Vec<String>>();
 
         for line in lines {
-            let line_normalized = line.replace("\\", &path::MAIN_SEPARATOR.to_string());
+            let line_normalized = line.replace('\\', std::path::MAIN_SEPARATOR_STR);
 
             let entries = glob(&line_normalized)
                 .map_err(|_| SrcError::new(format!("Invalid line in Src: {line_normalized}")))?
@@ -103,11 +103,11 @@ impl SrcParser {
 
 #[cfg(test)]
 mod tests {
-    use crate::errors::SrcError;
+    use crate::errors::PipelineFailure;
 
     use super::SrcParser;
     #[test]
-    fn empty_src() -> Result<(), SrcError> {
+    fn empty_src() -> Result<(), PipelineFailure> {
         let input = String::new();
         let output = SrcParser::collect_paths(input, String::from("."))?;
 

@@ -21,3 +21,9 @@ pub struct Class {
     pub name: Identifier,
     pub members: Vec<VarDeclaration>,
 }
+
+impl Class {
+    pub fn get_member<'a>(&'a self, name: &Identifier) -> Option<&'a VarDeclaration> {
+        self.members.iter().find(|member| &member.name == name)
+    }
+}

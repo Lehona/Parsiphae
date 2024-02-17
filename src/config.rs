@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone)]
 pub enum InputFile {
     Src(PathBuf),
     SingleFile(PathBuf),

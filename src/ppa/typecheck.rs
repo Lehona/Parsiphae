@@ -1,7 +1,8 @@
+use crate::types::parsed::Symbol;
 use crate::types::parsed::{self, zPAR_TYPE};
 use crate::types::{
-    self, AssignmentOperator, ConstArrayDeclaration, ConstDeclaration, Identifier, IfStatement,
-    Statement, VarAccess,
+    self, AssignmentOperator, ConstArrayDeclaration, ConstDeclaration, Expression, Identifier,
+    IfStatement, Statement, VarAccess,
 };
 
 use super::errors::{TypecheckError, TypecheckErrorKind as TEK};
@@ -17,7 +18,7 @@ pub enum IsType {
 
 pub struct TypeChecker<'a> {
     parsed_syms: &'a types::SymbolCollection,
-    errors: Vec<TypecheckError>,
+    pub errors: Vec<TypecheckError>,
     warnings: Vec<String>, // TODO: Change type once we have warnings to emit ;D
 }
 
@@ -82,13 +83,10 @@ impl<'a> TypeChecker<'a> {
         }
 
         for sym in self.parsed_syms.iter() {
-            match sym {
-                parsed::Symbol::Class(ref class) => {
-                    if ident.eq_ignore_ascii_case(class.name.as_bytes()) {
-                        return IsType::IsType;
-                    }
+            if let Symbol::Class(class) = sym {
+                if ident.eq_ignore_ascii_case(class.name.as_bytes()) {
+                    return IsType::IsType;
                 }
-                _ => {}
             }
         }
 
@@ -170,9 +168,8 @@ impl<'a> TypeChecker<'a> {
         scope: Option<&Identifier>,
     ) -> TCResult<zPAR_TYPE> {
         // TODO: Check array access / index etc.
-        if let Some(ref _inst) = var.instance {
-            // TODO implement instance access
-            unimplemented!()
+        if let Some(ref inst) = var.instance {
+            self.typecheck_instance_access(&var.name, var.index.as_ref(), inst, scope)
         } else {
             let sym = {
                 let sym = self.parsed_syms.lookup_symbol(&var.name, scope);
@@ -189,18 +186,81 @@ impl<'a> TypeChecker<'a> {
             };
 
             match sym {
-                parsed::Symbol::Class(_) => {
+                Symbol::Class(_) => {
                     self.errors.push(TypecheckError {
                         kind: TEK::IdentifierIsClassInExpression(var.name.clone()),
                         span: var.span,
                     });
-                    return Err(());
+                    Err(())
                 }
-                _ => {
-                    return Ok(sym.typ());
-                }
+                _ => Ok(sym.typ()),
             }
         }
+    }
+
+    fn typecheck_instance_access(
+        &mut self,
+        name: &Identifier,
+        _index: Option<&Expression>,
+        instance: &Identifier,
+        scope: Option<&Identifier>,
+    ) -> TCResult<zPAR_TYPE> {
+        // This can be either a variable or an instance.
+        let instance_type_name = match self.parsed_syms.lookup_symbol(instance, scope) {
+            Some(Symbol::Inst(inst)) => &inst.class,
+            Some(Symbol::Var(var, _scope)) => &var.typ,
+            Some(_symb) => {
+                self.errors.push(TypecheckError {
+                    kind: TEK::IdentifierIsNotInstance(instance.clone()),
+                    span: instance.span,
+                });
+                return Err(());
+            }
+            None => {
+                self.errors.push(TypecheckError {
+                    kind: TEK::UnknownIdentifier(instance.to_vec()),
+                    span: instance.span,
+                });
+                return Err(());
+            }
+        };
+
+        let instance_type = zPAR_TYPE::from_ident(instance_type_name);
+        match instance_type {
+            zPAR_TYPE::Instance(_) => {}
+            wrong_type => {
+                self.errors.push(TypecheckError {
+                    kind: TEK::TypeIsPrimitive(wrong_type),
+                    span: instance.span,
+                });
+                return Err(());
+            }
+        };
+
+        // TODO: I think this could be a Proto as well, need to recursively look that up
+        let class = match self.parsed_syms.lookup_symbol(instance_type_name, None) {
+            Some(Symbol::Class(class)) => class,
+            // If this is not actually a class, we will typecheck that at another point, hence we do not emit an error here
+            // (to prevent duplicate errors)
+            _ => return Err(()),
+        };
+
+        let member = match class.get_member(name) {
+            Some(member) => member,
+            None => {
+                self.errors.push(TypecheckError {
+                    kind: TEK::UnknownMember(class.name.clone(), name.clone()),
+                    span: (instance.span.0, name.span.1),
+                });
+                return Err(());
+            }
+        };
+
+        // TODO: We completely ignore the array access here, need to add that.
+
+        let member_type = zPAR_TYPE::from_ident(&member.typ);
+
+        Ok(member_type)
     }
 
     fn typecheck_expression(
@@ -210,9 +270,9 @@ impl<'a> TypeChecker<'a> {
     ) -> TCResult<zPAR_TYPE> {
         use crate::types::Expression::*;
         match exp {
-            Int(_) => return Ok(zPAR_TYPE::Int),
-            Float(_) => return Ok(zPAR_TYPE::Float),
-            String(_) => return Ok(zPAR_TYPE::String),
+            Int(_) => Ok(zPAR_TYPE::Int),
+            Float(_) => Ok(zPAR_TYPE::Float),
+            String(_) => Ok(zPAR_TYPE::String),
             Call(ref call) => {
                 let target = match self.parsed_syms.lookup_symbol(&call.func, None) {
                     None => {
@@ -246,7 +306,7 @@ impl<'a> TypeChecker<'a> {
 
                 for (call_param, target_param) in call.params.iter().zip(target.params.iter()) {
                     let expected = zPAR_TYPE::from_ident(&target_param.typ);
-                    let actual = self.typecheck_expression(&call_param, scope)?;
+                    let actual = self.typecheck_expression(call_param, scope)?;
 
                     if expected != actual {
                         self.errors.push(TypecheckError {
@@ -256,14 +316,14 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
 
-                return Ok(zPAR_TYPE::from_ident(&target.typ));
+                Ok(zPAR_TYPE::from_ident(&target.typ))
             }
             Binary(ref bin) => {
                 let left = self.typecheck_expression(&bin.left, scope)?;
                 let right = self.typecheck_expression(&bin.right, scope)?;
 
                 if left == zPAR_TYPE::Int && right == zPAR_TYPE::Int {
-                    return Ok(zPAR_TYPE::Int);
+                    Ok(zPAR_TYPE::Int)
                 } else {
                     if left != zPAR_TYPE::Int {
                         self.errors.push(TypecheckError {
@@ -280,22 +340,22 @@ impl<'a> TypeChecker<'a> {
 
                     // TODO: Think about return OK(Int) anyway, because we can assume that
                     // the user meant to type this as int anyway.
-                    return Err(());
+                    Err(())
                 }
             }
             Unary(ref un) => {
                 let inner_type = self.typecheck_expression(&un.right, scope)?;
                 if inner_type == zPAR_TYPE::Int {
-                    return Ok(inner_type);
+                    Ok(inner_type)
                 } else {
                     self.errors.push(TypecheckError {
                         kind: TEK::UnaryExpressionNotInt,
                         span: un.right.get_span(),
                     });
-                    return Err(());
+                    Err(())
                 }
             }
-            Identifier(ref var) => return self.typecheck_var_access(var, scope),
+            Identifier(ref var) => self.typecheck_var_access(var, scope),
         }
     }
 
@@ -354,6 +414,10 @@ impl<'a> TypeChecker<'a> {
         scope: Option<&Identifier>,
     ) -> TCResult<()> {
         for branch in &if_clause.branches {
+            for statement in &branch.body {
+                let _ = self.typecheck_statement(statement, scope);
+            }
+
             let cond_type = match self.typecheck_expression(&branch.cond, scope) {
                 Ok(typ) => typ,
                 Err(_) => continue,
@@ -365,15 +429,11 @@ impl<'a> TypeChecker<'a> {
                     span: branch.cond.get_span(),
                 });
             }
-
-            for statement in &branch.body {
-                let _ = self.typecheck_statement(&statement, scope);
-            }
         }
 
         if let Some(else_branch) = &if_clause.else_branch {
             for statement in else_branch {
-                let _ = self.typecheck_statement(&statement, scope);
+                let _ = self.typecheck_statement(statement, scope);
             }
         }
 
@@ -387,7 +447,7 @@ impl<'a> TypeChecker<'a> {
     ) -> TCResult<()> {
         match scope {
             Some(func_name) => {
-                match self.parsed_syms.lookup_symbol(&func_name, None) {
+                match self.parsed_syms.lookup_symbol(func_name, None) {
                     Some(symb) => {
                         if let parsed::Symbol::Func(func) = symb {
                             let return_type = zPAR_TYPE::from_ident(&func.typ);
@@ -482,7 +542,7 @@ impl<'a> TypeChecker<'a> {
 
         match &decl.array_size {
             Some(types::ArraySizeDeclaration::Identifier(constant)) => {
-                match self.parsed_syms.lookup_symbol(&constant, scope) {
+                match self.parsed_syms.lookup_symbol(constant, scope) {
                     Some(symb) => match symb {
                         parsed::Symbol::Const(const_decl, _) => {
                             let const_type = zPAR_TYPE::from_ident(&const_decl.typ);
@@ -500,7 +560,7 @@ impl<'a> TypeChecker<'a> {
                                 kind: TEK::NonConstantArraySize,
                                 span: constant.span,
                             }); // TODO Add symbol kind to error msg
-                            return Err(());
+                            Err(())
                         }
                     },
                     None => {
@@ -508,7 +568,7 @@ impl<'a> TypeChecker<'a> {
                             kind: TEK::UnknownIdentifierInArraySize(constant.clone()),
                             span: constant.span,
                         });
-                        return Err(());
+                        Err(())
                     }
                 }
             }
@@ -533,7 +593,7 @@ impl<'a> TypeChecker<'a> {
         };
 
         let scope = match parent {
-            parsed::Symbol::Class(class) => &class.name,
+            Symbol::Class(class) => &class.name,
             parsed::Symbol::Proto(proto) => &proto.class, // TODO an invalid prototype (e.g. invalid proto's parent) might produce a lot of errors
             _ => {
                 self.errors.push(TypecheckError {
@@ -562,7 +622,7 @@ impl<'a> TypeChecker<'a> {
         };
 
         let scope = match parent {
-            parsed::Symbol::Class(class) => &class.name,
+            Symbol::Class(class) => &class.name,
             parsed::Symbol::Proto(proto) => &proto.class, // TODO an invalid prototype (e.g. invalid proto's parent) might produce a lot of errors
             _ => {
                 self.errors.push(TypecheckError {
@@ -640,7 +700,7 @@ impl<'a> TypeChecker<'a> {
 
         match &decl.array_size {
             types::ArraySizeDeclaration::Identifier(constant) => {
-                match self.parsed_syms.lookup_symbol(&constant, scope) {
+                match self.parsed_syms.lookup_symbol(constant, scope) {
                     Some(symb) => match symb {
                         parsed::Symbol::Const(const_decl, _) => {
                             let const_type = zPAR_TYPE::from_ident(&const_decl.typ);
@@ -675,7 +735,7 @@ impl<'a> TypeChecker<'a> {
         let decl_type = zPAR_TYPE::from_ident(&decl.typ);
         for init_expression in &decl.initializer.expressions {
             // continue type checking other expressions
-            let init_type = match self.typecheck_expression(&init_expression, scope) {
+            let init_type = match self.typecheck_expression(init_expression, scope) {
                 Ok(t) => t,
                 Err(_) => continue,
             };
@@ -718,12 +778,9 @@ mod tests {
         let declarations = parser.start().expect("Unable to parse code");
         let mut visitor = SymbolCollector::new();
         crate::ppa::visitor::visit_ast(&AST { declarations }, &mut visitor);
-        let symbols = SymbolCollection::new(visitor.syms);
+        let symbols = SymbolCollection::with_symbols(visitor.syms);
         let mut typechecker = TypeChecker::new(&symbols);
-        typechecker
-            .typecheck()
-            .expect_err("Typechecking succeeded unexpectly");
-
+        let _ = typechecker.typecheck();
         typechecker.errors
     }
 
@@ -750,7 +807,7 @@ mod tests {
             ),
         ];
 
-        let sc = types::SymbolCollection::new(vec![]);
+        let sc = types::SymbolCollection::new();
         let mut tc = TypeChecker::new(&sc);
         for (exp, typ) in exps.iter() {
             let actual = tc.typecheck_expression(&exp, None).unwrap();
@@ -760,7 +817,7 @@ mod tests {
 
     #[test]
     fn exp_var() {
-        let sc = types::SymbolCollection::new(vec![parsed::Symbol::Var(
+        let sc = types::SymbolCollection::with_symbols(vec![parsed::Symbol::Var(
             types::VarDeclaration::new(
                 types::Identifier::new(b"bar", (0, 0)),
                 types::Identifier::new(b"foo", (0, 0)),
@@ -902,6 +959,78 @@ mod tests {
             span: (0, 32),
         }];
         let actual = setup_typecheck_errors(b"const int foo[3] = {1, \"2\", 3 };");
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn basic_member() {
+        let expected: Vec<TypecheckError> = vec![];
+        let actual = setup_typecheck_errors(
+            b"class foo { var int bar; }; func void baz() { var foo fox; fox.bar; };",
+        );
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn basic_member_missing() {
+        let expected = vec![TypecheckError {
+            kind: TEK::UnknownMember(
+                Identifier::new(b"foo", (6, 9)),
+                Identifier::new(b"bax", (63, 66)),
+            ),
+            span: (59, 66),
+        }];
+        let actual = setup_typecheck_errors(
+            b"class foo { var int bar; }; func void baz() { var foo fox; fox.bax; };",
+        );
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn basic_member_wrong_type() {
+        let expected = vec![TypecheckError {
+            kind: TEK::BinaryExpressionNotInt,
+            span: (91, 98),
+        }];
+        let actual = setup_typecheck_errors(
+            b"class foo { var string bar; }; func void baz() { var foo fox; var int number; number = 3 + fox.bar; };",
+        );
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn basic_member_primitive_base() {
+        let expected = vec![TypecheckError {
+            kind: TEK::TypeIsPrimitive(zPAR_TYPE::Int),
+            span: (31, 34),
+        }];
+        let actual = setup_typecheck_errors(b"func void baz() { var int fox; fox.bar; };");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn basic_member_wrong_identifier() {
+        let expected = vec![TypecheckError {
+            kind: TEK::IdentifierIsNotInstance(Identifier::new(b"baz", (18, 21))),
+            span: (18, 21),
+        }];
+        let actual = setup_typecheck_errors(b"func void baz() { baz.bar; };");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn basic_member_unknown_identifier() {
+        let expected = vec![TypecheckError {
+            kind: TEK::UnknownIdentifier(b"foo".to_vec()),
+            span: (18, 21),
+        }];
+        let actual = setup_typecheck_errors(b"func void baz() { foo.bar; };");
+
         assert_eq!(expected, actual);
     }
 }

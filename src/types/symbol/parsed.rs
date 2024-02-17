@@ -72,7 +72,22 @@ impl Symbol {
             }
         };
 
-        return full_name;
+        full_name
+    }
+
+    /// Retrieve the span of a symbol
+    /// For bigger symbols, this will return the span of the name instead.
+    pub fn span(&self) -> (usize, usize) {
+        use self::Symbol::*;
+        match self {
+            Var(ref decl, _) => decl.span,
+            Func(ref func) => func.name.span,
+            Class(ref class) => class.name.span,
+            Inst(ref inst) => inst.span,
+            Proto(ref proto) => proto.name.span,
+            Const(ref constant, _) => constant.span,
+            ConstArray(ref constant, _) => constant.span,
+        }
     }
 }
 
@@ -92,7 +107,7 @@ impl zPAR_TYPE {
         let ident_b = ident.as_bytes();
 
         if ident_b.eq_ignore_ascii_case(b"int") {
-            return zPAR_TYPE::Int;
+            zPAR_TYPE::Int
         } else if ident_b.eq_ignore_ascii_case(b"float") {
             return zPAR_TYPE::Float;
         } else if ident_b.eq_ignore_ascii_case(b"string") {

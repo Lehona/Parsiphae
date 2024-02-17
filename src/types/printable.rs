@@ -32,7 +32,7 @@ impl<'a> PrintableByteSlice<'a> {
 }
 impl<'a> ::std::fmt::Debug for PrintableByteSlice<'a> {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        let decoded = ISO_8859_1.decode(&self.0, DecoderTrap::Strict).unwrap();
+        let decoded = ISO_8859_1.decode(self.0, DecoderTrap::Strict).unwrap();
         write!(f, "{}", decoded)
     }
 }

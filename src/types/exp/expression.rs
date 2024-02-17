@@ -26,10 +26,7 @@ pub struct FloatNode {
 
 impl Expression {
     pub fn is_float(&self) -> bool {
-        match *self {
-            Expression::Float(_) => true,
-            _ => false,
-        }
+        matches!(self, Expression::Float(_))
     }
 
     pub fn get_span(&self) -> (usize, usize) {

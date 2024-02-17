@@ -1,58 +1,34 @@
 use crate::config::{Config, InputFile};
-use crate::error_handler::process_parsing_result;
+
+use crate::errors::PipelineFailure;
 use crate::file::{File, FileDb};
-use crate::json::MachineReadableOutput;
+
 use crate::lexer::Lexer;
 use crate::parser::errors::ParsingError;
 use crate::parser::parser::Parser;
 use crate::ppa::symbol_collector::SymbolCollector;
+use crate::ppa::typecheck::TypeChecker;
 use crate::src_parser::SrcParser;
-use crate::types::SymbolCollection;
-use crate::{errors::*, ppa, types};
-use itertools::Either;
-use itertools::Itertools;
+use crate::types::{SymbolCollection, AST};
 use std::io::Read;
 use std::path::Path;
 
-#[derive(Debug)]
-pub struct ParsingResult {
-    pub file_id: usize,
-    pub result: Result<types::AST>,
+type Result<O> = std::result::Result<O, PipelineFailure>;
+
+pub struct Parsiphae {
+    pub file_db: FileDb,
+    pub config: Config,
+    pub symbols: SymbolCollection,
 }
-
-impl ParsingResult {
-    pub fn new(file_id: usize, result: Result<types::AST>) -> Self {
-        ParsingResult { file_id, result }
-    }
-
-    pub fn print(&self) {
-        match self.result {
-            Ok(_) => {}
-            Err(ref e) => match e {
-                Error::ParsingError(_err) => {
-                    // let msg = err.description();
-                    eprintln!(
-                        "Error in file {:?} in line {}: {}",
-                        self.file_id, 1337, "kapuuut"
-                    ); // TODO: fix
-                }
-                _ => unreachable!(),
-            },
-        }
-    }
-
-    pub fn is_ok(&self) -> bool {
-        self.result.is_ok()
-    }
-}
-
-pub fn get_line_number(content: &[u8], offset: usize) -> usize {
-    content[0..offset].iter().filter(|b| **b == b'\n').count() + 1
-}
-
-pub struct Parsiphae;
 
 impl Parsiphae {
+    pub fn new(config: Config) -> Self {
+        Parsiphae {
+            file_db: FileDb::new(),
+            symbols: SymbolCollection::new(),
+            config,
+        }
+    }
     /// This is essentially the entry point to Parsiphae. You pass
     /// in a configuration, and Parsiphae will start the parsing process.
     /// Currently the only output are log lines.
@@ -62,68 +38,125 @@ impl Parsiphae {
     ///
     /// # Returns
     /// Ok() if processing was succesful.
-    pub fn process(config: Config) -> Result<()> {
-        let files = match config.input_file {
-            InputFile::SingleFile(path) => vec![path],
-            InputFile::Src(path) => SrcParser::parse_src(&path)?,
+    pub fn process(&mut self) -> std::result::Result<(), PipelineFailure> {
+        // (1) Get input paths/files
+        match self.config.input_file.clone() {
+            InputFile::SingleFile(path) => self.load_single_file(path)?,
+            InputFile::Src(path) => self.load_src(&path)?,
         };
 
-        let mut file_db = FileDb::new();
+        // (2) Parse files into AST
+        let (successful, parsing_errors) = self.parse_files();
+        log::info!("Parsed {} files.", successful.len() + parsing_errors.len());
+
+        // (2.1) Report errors
+        if !parsing_errors.is_empty() {
+            return Err(PipelineFailure::ParsingFailure(parsing_errors));
+        }
+
+        log::info!("No syntax errors detected.");
+
+        // (3) Turn AST into symbols
         let mut visitor = SymbolCollector::new();
-
-        let (successful_parses, errors): (Vec<types::AST>, Vec<(usize, ParsingError)>) = files
-            .into_iter()
-            .map(|file| Self::process_file(&mut file_db, file))
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .partition_map(|r| match r.result {
-                Ok(ast) => Either::Left(ast),
-                Err(e) => Either::Right((r.file_id, e.as_parsing_error())),
-            });
-
-        for ast in &successful_parses {
-            crate::ppa::visitor::visit_ast(&ast, &mut visitor);
+        for (_file_id, ast) in &successful {
+            crate::ppa::visitor::visit_ast(ast, &mut visitor);
         }
 
-        let symbols = SymbolCollection::new(visitor.syms);
-        let mut typechk = ppa::typecheck::TypeChecker::new(&symbols);
-        let _tc_result = typechk.typecheck();
-        let amount_errors = errors.len();
+        self.symbols.set_symbols(visitor.syms);
 
-        for (file_id, error) in &errors {
-            process_parsing_result(&file_db, *file_id, error);
+        // (4) Run typechecker
+        let mut typechk = TypeChecker::new(&self.symbols);
+        let _ = typechk.typecheck();
+
+        // (4.1) Report errors
+        if !typechk.errors.is_empty() {
+            // TODO: Make sure typechecking has file id information so the errors can actually be meanginfully rendered :)
+            log::error!("Typechecking failed with {:?}", typechk.errors);
+            return Err(PipelineFailure::TypecheckFailure(
+                vec![], /*typecheck.errors*/
+            ));
+        }
+        Ok(())
+    }
+
+    /// Load an SRC file into a FileDB, attempting to parse as many files as possible
+    /// and accumulating the errors.
+    ///
+    /// # Parameters
+    /// `src`: Path to the .SRC file
+    ///
+    /// # Returns
+    /// `FileDb` on success, Vector of errors otherwise.
+    fn load_src<P: AsRef<Path>>(&mut self, src: P) -> Result<()> {
+        let paths = SrcParser::parse_src(src.as_ref())?;
+
+        let mut errors = Vec::new();
+
+        for path in paths {
+            let mut file = std::fs::File::open(&path).unwrap();
+
+            let mut content = Vec::new();
+            file.read_to_end(&mut content)?;
+
+            let tokens = match Lexer::lex(&content) {
+                Ok(tok) => tok,
+                Err(e) => {
+                    errors.push((path.to_owned(), e));
+                    continue;
+                }
+            };
+
+            let file_obj = File::new(path.to_owned(), content, tokens);
+            self.file_db.add(file_obj);
         }
 
-        if config.json {
-            MachineReadableOutput::process(&file_db, errors).expect("Failed...");
-        }
-
-        log::info!("Parsed {} files.", successful_parses.len() + amount_errors);
-        if amount_errors == 0 {
-            log::info!("No syntax errors detected.");
+        if !errors.is_empty() {
+            return Err(PipelineFailure::LexingFailure(errors));
         }
 
         Ok(())
     }
 
-    // TODO: Figure out new error handling!
-    fn process_file<P: AsRef<Path>>(file_db: &mut FileDb, path: P) -> Result<ParsingResult> {
+    /// Load a single file into a FileDB.
+    ///
+    /// # Parameters
+    /// `path`: Path to the file
+    ///
+    /// # Returns
+    /// `FileDb` on success, Error otherwise.
+    fn load_single_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let mut file = std::fs::File::open(&path).unwrap();
 
         let mut content = Vec::new();
         file.read_to_end(&mut content)?;
 
-        let tokens = Lexer::lex(&content).expect("Unable to tokenize");
-        let mut parser = Parser::new(&tokens);
+        let tokens = Lexer::lex(&content)
+            .map_err(|e| PipelineFailure::LexingFailure(vec![(path.as_ref().to_owned(), e)]))?;
 
-        let file_obj = File::new(path.as_ref().to_owned(), content, Some(tokens));
-        let file_id = file_db.add(file_obj);
+        let file_obj = File::new(path.as_ref().to_owned(), content, tokens);
+        self.file_db.add(file_obj);
 
-        let result = parser
-            .start()
-            .map(|declarations| types::AST { declarations })
-            .map_err(|e| e.with_token_start(parser.progress() + 1).into());
+        Ok(())
+    }
 
-        Ok(ParsingResult::new(file_id, result))
+    /// Parse all files in the FileDB.
+    fn parse_files(&self) -> (Vec<(usize, AST)>, Vec<(usize, ParsingError)>) {
+        let mut successful_parses = Vec::new();
+        let mut erroneous_parses = Vec::new();
+        for (file_id, file) in self.file_db.iter() {
+            let mut parser = Parser::new(&file.tokens);
+            match parser
+                .start()
+                .map(|declarations| AST { declarations })
+                .map_err(|e| e.with_token_start(parser.progress() + 1))
+            {
+                Ok(parse) => successful_parses.push((file_id, parse)),
+                Err(e) => erroneous_parses.push((file_id, e)),
+            }
+
+            log::trace!("Parsed file {}.", file.path.display())
+        }
+
+        (successful_parses, erroneous_parses)
     }
 }

@@ -1,14 +1,17 @@
 use crate::types::{parsed::zPAR_TYPE, Identifier};
+use strum::EnumDiscriminants;
+use strum::EnumIter;
 
 pub type Result<O> = std::result::Result<O, TypecheckError>;
 type Span = (usize, usize);
 type SymbolKind = ();
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, EnumDiscriminants)]
+#[strum_discriminants(derive(EnumIter))]
+#[strum_discriminants(name(TypecheckErrorVariant))]
 pub enum TypecheckErrorKind {
     InternalFailure(String),
     UnknownIdentifier(Vec<u8>),
-    VoidFunctionInExpression,
     UnknownReturnType(Identifier), // Return Type is an unknown symbol
     UnknownParameterType(Identifier), // Parameter type is an unknown symbol
     UnknownFunctionCall(Identifier), // Tries to call an unknown function
@@ -35,6 +38,9 @@ pub enum TypecheckErrorKind {
     InstanceHasUnknownParent(Identifier),
     InstanceParentNotClassOrProto(Identifier, SymbolKind), // The parent 1 is not a class or prototype, instead the symbol is kind 2
     IdentifierIsNotType(Identifier), // An identifier is used in type-position, but is not actually a type.
+    IdentifierIsNotInstance(Identifier), // An identifier is used in instance-position (inst.member), but is not suitable
+    TypeIsPrimitive(zPAR_TYPE), // A variable of the given type was accessed like an instance (inst.member)
+    UnknownMember(Identifier, Identifier), // Something is trying to access member '2' of class '1'
 }
 
 #[derive(Debug, Clone, PartialEq)]

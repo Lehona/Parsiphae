@@ -17,9 +17,9 @@ impl VarAccess {
         span: (usize, usize),
     ) -> Self {
         // In case there is a second identifier it's an object access (instance.member), so we swap the parameters around.
-        if second_ident.is_some() {
+        if let Some(name) = second_ident {
             VarAccess {
-                name: second_ident.unwrap(),
+                name,
                 instance: Some(first_ident),
                 index,
                 span,

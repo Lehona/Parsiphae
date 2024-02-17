@@ -4,8 +4,6 @@ use crate::parser::errors::{
 };
 use crate::types::{Expression, FloatNode, Identifier, IntNode, VarAccess};
 
-use std::convert::TryInto;
-
 impl crate::parser::parser::Parser {
     fn unary(&mut self) -> Result<Expression> {
         if match_tok!(
@@ -22,7 +20,7 @@ impl crate::parser::parser::Parser {
 
             Ok(crate::types::Expression::Unary(Box::new(
                 crate::types::UnaryExpression::from_token(
-                    prev.kind.try_into().unwrap(),
+                    prev.kind,
                     right,
                     (span_start, span_end),
                 )?, // TODO: fix unwrap
@@ -154,14 +152,14 @@ impl crate::parser::parser::Parser {
             TokenKind::Integer(i) => {
                 self.advance();
                 return Ok(Expression::Int(IntNode {
-                    value: i as i64,
+                    value: i,
                     span: current_span,
                 }));
             }
             TokenKind::Decimal(f) => {
                 self.advance();
                 return Ok(Expression::Float(FloatNode {
-                    value: f as f64,
+                    value: f,
                     span: current_span,
                 }));
             }
@@ -169,11 +167,11 @@ impl crate::parser::parser::Parser {
             _ => (),
         }
 
-        return Err(ParsingError::from_token(
+        Err(ParsingError::from_token(
             PEK::ExpectedOneOf(vec![PP::Call, PP::VariableAccess, PP::Integer, PP::Decimal]),
             self.current_id(),
             true,
-        ));
+        ))
     }
 
     pub fn var_access(&mut self) -> Result<VarAccess> {

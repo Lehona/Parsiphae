@@ -11,3 +11,5 @@ After downloading or building Parsiphae, call `parsiphae.exe --src "path\to\Goth
 * Remove unwrap in main
 * String literals that are used incorrectly in expressions fail to parse, which leads to bad error messages.
 * Typechecking compares zPAR_TYPE, which does case-sensitive comparisons of non-primitive types
+* Typechecking ignores array access in inst.member[X]
+* Symbols should have an associated file_id, otherwise span information is pointless.

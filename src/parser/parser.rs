@@ -11,10 +11,7 @@ impl Parser {
     pub fn new(tokens: &[Token]) -> Self {
         let tokens = tokens
             .iter()
-            .filter(|tok| match tok.kind {
-                TokenKind::Comment(_) => false,
-                _ => true,
-            })
+            .filter(|tok| !matches!(tok.kind, TokenKind::Comment(_)))
             .cloned()
             .collect();
 
@@ -134,6 +131,6 @@ impl Parser {
         for t in self.tokens.iter().skip(self.current).take(amount) {
             print!("{:?}  ", t.kind);
         }
-        print!("\n");
+        println!();
     }
 }

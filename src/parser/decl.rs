@@ -127,11 +127,11 @@ impl crate::parser::parser::Parser {
             ));
         }
 
-        return Err(ParsingError::from_token(
+        Err(ParsingError::from_token(
             PEK::ExpectedOneOfToken(vec![TokenKind::SquareOpen, TokenKind::Assign]),
             self.current_id(),
             true,
-        ));
+        ))
     }
 
     pub fn const_decl_decl(&mut self) -> Result<Declaration> {

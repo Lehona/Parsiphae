@@ -7,9 +7,66 @@ use codespan_reporting::{
 };
 
 use crate::{
+    config::Config,
+    errors::PipelineFailure,
     file::FileDb,
+    json::{JsonError, ParsiphaeJson},
     parser::errors::{ParsingError, ParsingErrorKind as PEK},
 };
+
+impl PipelineFailure {
+    pub fn render(&self, config: &Config, file_db: &FileDb) {
+        match config.json {
+            true => self.render_json(file_db),
+            false => self.render_terminal(file_db),
+        }
+    }
+    fn render_terminal(&self, file_db: &FileDb) {
+        match &self {
+            PipelineFailure::IOFailure(_) => todo!(),
+            PipelineFailure::SrcFailure(_) => todo!(),
+            PipelineFailure::LexingFailure(_) => todo!(),
+            PipelineFailure::ParsingFailure(errors) => {
+                for (file_id, error) in errors {
+                    process_parsing_result(file_db, *file_id, error);
+                }
+            }
+            PipelineFailure::TypecheckFailure(_) => todo!(),
+        }
+    }
+
+    fn render_json(&self, file_db: &FileDb) {
+        let errors = match &self {
+            PipelineFailure::IOFailure(_) => todo!(),
+            PipelineFailure::SrcFailure(_) => todo!(),
+            PipelineFailure::LexingFailure(_) => todo!(),
+            PipelineFailure::ParsingFailure(errors) => errors
+                .iter()
+                .map(|(file_id, err)| {
+                    let file = file_db.get(*file_id);
+                    let span_start = file.tokens[err.token_end - 1].span.0;
+                    let span_end = file.tokens[err.token_end].span.1;
+
+                    JsonError {
+                        message: err.message(),
+                        start: span_start,
+                        end: span_end,
+                        file_id: *file_id,
+                    }
+                })
+                .collect(),
+            PipelineFailure::TypecheckFailure(_) => todo!(),
+        };
+        let root = ParsiphaeJson {
+            errors,
+            warnings: Vec::new(),
+        };
+
+        let as_json = serde_json::to_string_pretty(&root)
+            .expect("Due to implementation choices this cannot fail.");
+        println!("{as_json}");
+    }
+}
 
 pub fn process_parsing_result(file_db: &FileDb, file_id: usize, error: &ParsingError) {
     let ParsingError {
@@ -51,7 +108,6 @@ pub fn process_parsing_result(file_db: &FileDb, file_id: usize, error: &ParsingE
         _ => "Missing label".to_string(),
     };
 
-    println!("{:?}", &kind);
     match &kind {
         PEK::InternalParserFailure => internal_parser_failure(file_db, file_id),
         PEK::ReachedEOF => reached_eof(file_db, file_id),
@@ -60,7 +116,7 @@ pub fn process_parsing_result(file_db: &FileDb, file_id: usize, error: &ParsingE
         PEK::MissingInstanceName => missing_instance_name(file_db, file_id, *token_end),
         PEK::MissingInstanceType => missing_instance_type(file_db, file_id, *token_end),
         PEK::StatementWithoutSemicolon => statement_without_semicolon(file_db, file_id, *token_end),
-        _ => {}
+        _ => log::error!("Error occured, but no renderer has been implemented yet: '{kind:?}'."),
     }
 
     // let file = file_db.get(result.file_id);
@@ -83,7 +139,7 @@ fn emit_source_error(file_db: &FileDb, diagnostic: &Diagnostic<usize>) {
         ..Default::default()
     };
 
-    emit(&mut writer, &config, file_db, &diagnostic).expect("Failed to print error");
+    emit(&mut writer, &config, file_db, diagnostic).expect("Failed to print error");
 }
 
 fn internal_parser_failure(file_db: &FileDb, file_id: usize) {
@@ -96,7 +152,7 @@ fn internal_parser_failure(file_db: &FileDb, file_id: usize) {
 fn reached_eof(file_db: &FileDb, file_id: usize) {
     let label = Label::primary(file_id, 0..0).with_message("End of File here"); // TODO: fix span
     let diagnostic = Diagnostic::error()
-        .with_message("Reachd End of File")
+        .with_message("Reached End of File")
         .with_labels(vec![label]);
 
     emit_source_error(file_db, &diagnostic);
@@ -104,8 +160,8 @@ fn reached_eof(file_db: &FileDb, file_id: usize) {
 
 fn missing_function_name(file_db: &FileDb, file_id: usize, token_end: usize) {
     let file = file_db.get(file_id);
-    let span_start = file.tokens.as_ref().unwrap()[token_end - 1].span.1;
-    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+    let span_start = file.tokens[token_end - 1].span.1;
+    let span_end = file.tokens[token_end].span.0;
 
     let label =
         Label::primary(file_id, span_start..span_end).with_message("The name is missing here");
@@ -118,8 +174,8 @@ fn missing_function_name(file_db: &FileDb, file_id: usize, token_end: usize) {
 
 fn missing_function_type(file_db: &FileDb, file_id: usize, token_end: usize) {
     let file = file_db.get(file_id);
-    let span_start = file.tokens.as_ref().unwrap()[token_end - 1].span.1;
-    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+    let span_start = file.tokens[token_end - 1].span.1;
+    let span_end = file.tokens[token_end].span.0;
 
     let label =
         Label::primary(file_id, span_start..span_end).with_message("The type is missing here");
@@ -132,8 +188,8 @@ fn missing_function_type(file_db: &FileDb, file_id: usize, token_end: usize) {
 
 fn missing_instance_name(file_db: &FileDb, file_id: usize, token_end: usize) {
     let file = file_db.get(file_id);
-    let span_start = file.tokens.as_ref().unwrap()[token_end - 1].span.1;
-    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+    let span_start = file.tokens[token_end - 1].span.1;
+    let span_end = file.tokens[token_end].span.0;
 
     let label =
         Label::primary(file_id, span_start..span_end).with_message("The name is missing here");
@@ -145,8 +201,8 @@ fn missing_instance_name(file_db: &FileDb, file_id: usize, token_end: usize) {
 }
 fn missing_instance_type(file_db: &FileDb, file_id: usize, token_end: usize) {
     let file = file_db.get(file_id);
-    let span_start = file.tokens.as_ref().unwrap()[token_end - 1].span.1;
-    let span_end = file.tokens.as_ref().unwrap()[token_end].span.0;
+    let span_start = file.tokens[token_end - 1].span.1;
+    let span_end = file.tokens[token_end].span.0;
 
     let label =
         Label::primary(file_id, span_start..span_end).with_message("The type is missing here");
@@ -159,7 +215,7 @@ fn missing_instance_type(file_db: &FileDb, file_id: usize, token_end: usize) {
 
 fn statement_without_semicolon(file_db: &FileDb, file_id: usize, token_end: usize) {
     let file = file_db.get(file_id);
-    let span_start = file.tokens.as_ref().unwrap()[token_end - 1].span.1;
+    let span_start = file.tokens[token_end - 1].span.1;
 
     let label = Label::primary(file_id, span_start..span_start)
         .with_message("The semicolon is missing here");

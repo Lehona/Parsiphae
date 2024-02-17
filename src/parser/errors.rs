@@ -105,4 +105,23 @@ impl ParsingError {
         self.token_start = start;
         self
     }
+
+    pub fn message(&self) -> String {
+        match self.kind {
+            ParsingErrorKind::Expected(_) => todo!(),
+            ParsingErrorKind::UnexpectedToken(_, _) => todo!(),
+            ParsingErrorKind::ExpectedToken(_) => todo!(),
+            ParsingErrorKind::ExpectedOneOfToken(_) => todo!(),
+            ParsingErrorKind::ExpectedOneOf(_) => todo!(),
+            ParsingErrorKind::ReachedEOF => "Reached End of File.".into(),
+            ParsingErrorKind::InternalParserFailure => todo!(),
+            ParsingErrorKind::MissingFunctionName => "A function is missing a name.".into(),
+            ParsingErrorKind::MissingFunctionType => "A function is missing a return type".into(),
+            ParsingErrorKind::MissingInstanceName => "An instance is missing a name.".into(),
+            ParsingErrorKind::MissingInstanceType => "An instance is missing a type.".into(),
+            ParsingErrorKind::StatementWithoutSemicolon => {
+                "A statement is missing a semicolon at the end.".into()
+            }
+        }
+    }
 }

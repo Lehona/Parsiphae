@@ -93,9 +93,9 @@ impl<'a, V: VisitorMut + 'a> VisitorMut for VisitorEngine<'a, V> {
         self.visitor.visit_statement(statement, scope);
 
         match statement {
-            &Statement::Exp(ref exp) => self.visit_expression(exp, Some(scope)),
-            &Statement::Ass(ref ass) => self.visit_expression(&ass.exp, Some(scope)),
-            &Statement::If(ref if_statement) => {
+            Statement::Exp(exp) => self.visit_expression(exp, Some(scope)),
+            Statement::Ass(ass) => self.visit_expression(&ass.exp, Some(scope)),
+            Statement::If(if_statement) => {
                 for branch in &if_statement.branches {
                     self.visit_expression(&branch.cond, Some(scope));
                     for statement in &branch.body {
@@ -109,18 +109,18 @@ impl<'a, V: VisitorMut + 'a> VisitorMut for VisitorEngine<'a, V> {
                     }
                 }
             }
-            &Statement::VarDeclarations(ref var_decls) => {
+            Statement::VarDeclarations(var_decls) => {
                 for decl in var_decls {
                     self.visit_var_decl(decl, Some(scope));
                 }
             }
-            &Statement::ConstDeclaration(ref const_decl) => {
+            Statement::ConstDeclaration(const_decl) => {
                 self.visit_const_decl(const_decl, Some(scope));
             }
-            &Statement::ConstArrayDeclaration(ref const_arr_decl) => {
+            Statement::ConstArrayDeclaration(const_arr_decl) => {
                 self.visit_const_arr_decl(const_arr_decl, Some(scope));
             }
-            &Statement::ReturnStatement(ref ret) => {
+            Statement::ReturnStatement(ret) => {
                 if let Some(ref exp) = ret.exp {
                     self.visit_expression(exp, Some(scope))
                 }

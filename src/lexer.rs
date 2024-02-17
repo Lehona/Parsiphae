@@ -1,6 +1,8 @@
 use anyhow::{bail, ensure, Result};
 use std::collections::HashMap;
 
+use crate::errors::LexerError;
+
 type ParserResult = Result<(TokenKind, usize)>;
 type Parser = fn(&[u8]) -> ParserResult;
 
@@ -80,9 +82,9 @@ pub struct Token {
 impl Token {
     pub fn stringified(&self) -> String {
         match &self.kind {
-            TokenKind::Comment(c) => format!("// {}", c.replace("\n", "\\n")),
-            TokenKind::Identifier(id) => format!("{}", String::from_utf8_lossy(&id).to_uppercase()),
-            TokenKind::StringLit(s) => format!("\"{}\"", String::from_utf8_lossy(&s)),
+            TokenKind::Comment(c) => format!("// {}", c.replace('\n', "\\n")),
+            TokenKind::Identifier(id) => String::from_utf8_lossy(id).to_uppercase().to_string(),
+            TokenKind::StringLit(s) => format!("\"{}\"", String::from_utf8_lossy(s)),
             _ => format!("{:?}", self.kind).to_uppercase(),
         }
     }
@@ -98,7 +100,7 @@ pub struct Lexer;
 
 impl Lexer {
     fn skip_whitespace(data: &[u8]) -> usize {
-        const WHITESPACE: &'static [u8] = b" \t\n\r";
+        const WHITESPACE: &[u8] = b" \t\n\r";
 
         data.iter().take_while(|c| WHITESPACE.contains(*c)).count()
     }
@@ -111,8 +113,8 @@ impl Lexer {
             b'/',
             vec![
                 |data| Self::tokenize_literal(data, b"/=", TokenKind::DivideAssign, false),
-                |data| Self::tokenize_linecomment(data),
-                |data| Self::tokenize_multilinecomment(data),
+                Self::tokenize_linecomment,
+                Self::tokenize_multilinecomment,
                 |data| Self::tokenize_literal(data, b"/", TokenKind::Divide, false),
             ],
         );
@@ -192,7 +194,7 @@ impl Lexer {
         ensure!(data.len() > 1, "Input is not long enough.");
         ensure!(&data[..2] == b"//", "Comment does not start with //");
 
-        const COMMENT_END: &'static [u8] = b"\r\n";
+        const COMMENT_END: &[u8] = b"\r\n";
 
         let comment_length = data[2..]
             .iter()
@@ -210,7 +212,7 @@ impl Lexer {
         ensure!(data.len() > 3, "Input is not long enough.");
         ensure!(&data[..2] == b"/*", "Comment does not start with /*");
 
-        const MULTILINE_COMMENT_END: &'static [u8] = b"*/";
+        const MULTILINE_COMMENT_END: &[u8] = b"*/";
 
         // TODO FIX THIS FN
         let comment_length = data[2..]
@@ -225,9 +227,9 @@ impl Lexer {
     }
 
     fn tokenize_identifier(data: &[u8]) -> ParserResult {
-        const IDENTIFIER_BEGIN: &'static [u8] =
+        const IDENTIFIER_BEGIN: &[u8] =
             b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890";
-        const IDENTIFIER_END: &'static [u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_^@1234567890\xC4\xE4\xD6\xF6\xFC\xDC\xDF";
+        const IDENTIFIER_END: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_^@1234567890\xC4\xE4\xD6\xF6\xFC\xDC\xDF";
 
         ensure!(!data.is_empty(), "Input is empty!");
         let first = data[0];
@@ -395,7 +397,7 @@ impl Lexer {
         Ok(token)
     }
 
-    pub fn lex(mut input: &[u8]) -> Result<Vec<Token>> {
+    pub fn lex(mut input: &[u8]) -> std::result::Result<Vec<Token>, LexerError> {
         let mut tokens = Vec::new();
         let mut offset = 0;
 

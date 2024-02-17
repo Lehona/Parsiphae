@@ -11,13 +11,13 @@ impl crate::parser::parser::Parser {
 
         let stmt = (|| {
             if self.check(TokenKind::If) {
-                return Ok(Statement::If(Box::new(self.if_statement()?)));
+                Ok(Statement::If(Box::new(self.if_statement()?)))
             } else if self.check(TokenKind::Var) {
                 return Ok(Statement::VarDeclarations(self.var_decl()?));
             } else if self.check(TokenKind::Const) {
-                return Ok(self.const_decl_stmt()?);
+                return self.const_decl_stmt();
             } else if self.check(TokenKind::Return) {
-                return Ok(self.return_statement()?);
+                return self.return_statement();
             } else {
                 // TODO: Add handling of recoverability
                 match self.assignment() {
@@ -132,7 +132,7 @@ impl crate::parser::parser::Parser {
                 span,
             })
         } else {
-            return Err(ParsingError::from_token(
+            Err(ParsingError::from_token(
                 PEK::ExpectedOneOfToken(vec![
                     TokenKind::Assign,
                     TokenKind::PlusAssign,
@@ -142,7 +142,7 @@ impl crate::parser::parser::Parser {
                 ]),
                 self.current_id(),
                 true,
-            ));
+            ))
         }
     }
 
