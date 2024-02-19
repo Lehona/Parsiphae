@@ -135,6 +135,10 @@ impl<'a, V: VisitorMut + 'a> VisitorMut for VisitorEngine<'a, V> {
     fn visit_func_decl(&mut self, decl: &Function) {
         self.visitor.visit_func_decl(decl);
 
+        for param in &decl.params {
+            self.visitor.visit_var_decl(param, Some(&decl.name));
+        }
+
         for statement in &decl.body {
             self.visit_statement(statement, &decl.name);
         }

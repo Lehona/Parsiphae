@@ -55,7 +55,20 @@ impl PipelineFailure {
                     }
                 })
                 .collect(),
-            PipelineFailure::TypecheckFailure(_) => todo!(),
+            PipelineFailure::TypecheckFailure(errors) => errors
+            .iter()
+            .map(|(file_id, _err)| {
+                let _file = file_db.get(*file_id);
+
+                #[allow(unreachable_code)]
+                JsonError {
+                    message: todo!(), /* err.message() */
+                    start: todo!(),
+                    end: todo!(),
+                    file_id: *file_id,
+                }
+            })
+            .collect(),
         };
         let root = ParsiphaeJson {
             errors,

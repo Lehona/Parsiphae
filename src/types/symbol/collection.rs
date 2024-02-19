@@ -1,10 +1,17 @@
+use std::collections::HashMap;
+
 use crate::types::Identifier;
 
 use super::parsed::Symbol;
 
+/// This is technically not needed, but allows me to easily write a pretty printer for better debugging...
+#[repr(transparent)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct SymbolName(Vec<u8>);
+
 #[derive(Default)]
 pub struct SymbolCollection {
-    syms: Vec<(Vec<u8>, Symbol)>, // TODO Do we really need a tuple?
+    syms: HashMap<SymbolName, Symbol>,
 }
 
 impl SymbolCollection {
@@ -20,7 +27,7 @@ impl SymbolCollection {
     }
 
     pub fn set_symbols(&mut self, syms: Vec<Symbol>) {
-        self.syms = syms.into_iter().map(|symb| (symb.name(), symb)).collect();
+        self.syms = syms.into_iter().map(|symb| (SymbolName(symb.name()), symb)).collect();
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Symbol> {
@@ -39,7 +46,7 @@ impl SymbolCollection {
 
     fn get(&self, name: &[u8]) -> Option<&Symbol> {
         for (ref fullname, ref symb) in self.syms.iter() {
-            if fullname.eq_ignore_ascii_case(name) {
+            if fullname.0.eq_ignore_ascii_case(name) {
                 return Some(symb);
             }
         }

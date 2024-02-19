@@ -73,7 +73,7 @@ impl<'a> TypeChecker<'a> {
     fn is_type(&self, typ: &Identifier) -> IsType {
         lazy_static! {
             static ref PRIMITIVES: &'static [&'static [u8]] =
-                &[b"int", b"void", b"string", b"float"];
+                &[b"int", b"void", b"string", b"float", b"func"];
         }
         let ident = typ.as_bytes();
         for primitive in PRIMITIVES.iter() {
@@ -193,6 +193,7 @@ impl<'a> TypeChecker<'a> {
                     });
                     Err(())
                 }
+                Symbol::Func(_) => Ok(zPAR_TYPE::Func),
                 _ => Ok(sym.typ()),
             }
         }
@@ -367,7 +368,7 @@ impl<'a> TypeChecker<'a> {
         let left_type = self.typecheck_var_access(&ass.var, scope)?;
         let right_type = self.typecheck_expression(&ass.exp, scope)?;
 
-        if left_type != right_type {
+        if !left_type.compatible(&right_type) {
             self.errors.push(TypecheckError {
                 kind: TEK::AssignmentWrongTypes(
                     left_type,

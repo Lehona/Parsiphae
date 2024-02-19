@@ -76,6 +76,8 @@ impl Parsiphae {
                 vec![], /*typecheck.errors*/
             ));
         }
+
+        log::info!("Typechecking succeeded.");
         Ok(())
     }
 

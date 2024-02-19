@@ -91,7 +91,6 @@ impl Symbol {
     }
 }
 
-// TODO implement void type?
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum zPAR_TYPE {
@@ -99,6 +98,7 @@ pub enum zPAR_TYPE {
     Int,
     Float,
     String,
+    Func,
     Instance(types::Identifier),
 }
 
@@ -109,13 +109,23 @@ impl zPAR_TYPE {
         if ident_b.eq_ignore_ascii_case(b"int") {
             zPAR_TYPE::Int
         } else if ident_b.eq_ignore_ascii_case(b"float") {
-            return zPAR_TYPE::Float;
+            zPAR_TYPE::Float
         } else if ident_b.eq_ignore_ascii_case(b"string") {
-            return zPAR_TYPE::String;
+            zPAR_TYPE::String
         } else if ident_b.eq_ignore_ascii_case(b"void") {
-            return zPAR_TYPE::Void;
+            zPAR_TYPE::Void
+        } else if ident_b.eq_ignore_ascii_case(b"func") {
+            zPAR_TYPE::Func
         } else {
-            return zPAR_TYPE::Instance(ident.clone());
+            zPAR_TYPE::Instance(ident.clone())
+        }
+    }
+
+    pub fn compatible(&self, other: &zPAR_TYPE) -> bool {
+        match (self, other) {
+            (zPAR_TYPE::Instance(_), zPAR_TYPE::Instance(_)) => true,
+            (a, b) if a == b => true,
+            _ => false,
         }
     }
 }
