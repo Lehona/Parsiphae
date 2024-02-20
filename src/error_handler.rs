@@ -57,15 +57,16 @@ impl PipelineFailure {
                 .collect(),
             PipelineFailure::TypecheckFailure(errors) => errors
             .iter()
-            .map(|(file_id, _err)| {
-                let _file = file_db.get(*file_id);
+            .map(|err| {
+                let file_id = err.file_id;
+                let _file = file_db.get(file_id);
 
                 #[allow(unreachable_code)]
                 JsonError {
                     message: todo!(), /* err.message() */
                     start: todo!(),
                     end: todo!(),
-                    file_id: *file_id,
+                    file_id,
                 }
             })
             .collect(),

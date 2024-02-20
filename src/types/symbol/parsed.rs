@@ -1,7 +1,7 @@
-use crate::types;
+use crate::{file::db::FileId, types};
 
 #[derive(Debug, Clone, PartialEq, From)]
-pub enum Symbol {
+pub enum SymbolKind {
     Var(types::VarDeclaration, Option<types::Identifier>),
     Func(types::Function),
     Class(types::Class),
@@ -11,9 +11,15 @@ pub enum Symbol {
     ConstArray(types::ConstArrayDeclaration, Option<types::Identifier>),
 }
 
-impl Symbol {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Symbol {
+    pub file_id: FileId,
+    pub kind: SymbolKind,
+}
+
+impl SymbolKind {
     pub fn typ(&self) -> zPAR_TYPE {
-        use self::Symbol::*;
+        use self::SymbolKind::*;
 
         match *self {
             Var(ref decl, _) => zPAR_TYPE::from_ident(&decl.typ),
@@ -30,7 +36,7 @@ impl Symbol {
     }
 
     pub fn name(&self) -> Vec<u8> {
-        use self::Symbol::*;
+        use self::SymbolKind::*;
 
         let full_name = match *self {
             Var(ref decl, ref scope) => {
@@ -78,7 +84,7 @@ impl Symbol {
     /// Retrieve the span of a symbol
     /// For bigger symbols, this will return the span of the name instead.
     pub fn span(&self) -> (usize, usize) {
-        use self::Symbol::*;
+        use self::SymbolKind::*;
         match self {
             Var(ref decl, _) => decl.span,
             Func(ref func) => func.name.span,

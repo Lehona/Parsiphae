@@ -46,7 +46,7 @@ pub enum PipelineFailure {
     /// Errors occured during the parsing stage.
     ParsingFailure(Vec<(FileId, ParsingError)>),
     /// Errors occured during typechecking.
-    TypecheckFailure(Vec<(FileId, TypecheckError)>),
+    TypecheckFailure(Vec<TypecheckError>),
 }
 
 impl From<std::io::Error> for PipelineFailure {

@@ -58,7 +58,8 @@ impl Parsiphae {
 
         // (3) Turn AST into symbols
         let mut visitor = SymbolCollector::new();
-        for (_file_id, ast) in &successful {
+        for (file_id, ast) in &successful {
+            visitor.file_id = *file_id;
             crate::ppa::visitor::visit_ast(ast, &mut visitor);
         }
 

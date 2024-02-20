@@ -1,10 +1,12 @@
+use crate::file::db::FileId;
 use crate::ppa::visitor::*;
 use crate::types;
-use crate::types::parsed;
+use crate::types::parsed::Symbol;
 
 #[derive(Debug, Default)]
 pub struct SymbolCollector {
-    pub syms: Vec<parsed::Symbol>,
+    pub file_id: FileId,
+    pub syms: Vec<Symbol>,
 }
 
 impl SymbolCollector {
@@ -17,24 +19,38 @@ impl SymbolCollector {
 
 impl VisitorMut for SymbolCollector {
     fn visit_var_decl(&mut self, decl: &types::VarDeclaration, scope: Option<&types::Identifier>) {
-        self.syms
-            .push(parsed::Symbol::Var(decl.clone(), scope.cloned()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: (decl.clone(), scope.cloned()).into()
+        });
     }
 
     fn visit_func_decl(&mut self, decl: &types::Function) {
-        self.syms.push(parsed::Symbol::Func(decl.clone()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: decl.clone().into()
+        });
     }
 
     fn visit_class_decl(&mut self, decl: &types::Class) {
-        self.syms.push(parsed::Symbol::Class(decl.clone()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: decl.clone().into()
+        });
     }
 
     fn visit_inst_decl(&mut self, decl: &types::Instance) {
-        self.syms.push(parsed::Symbol::Inst(decl.clone()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: decl.clone().into()
+        });
     }
 
     fn visit_proto_decl(&mut self, decl: &types::Prototype) {
-        self.syms.push(parsed::Symbol::Proto(decl.clone()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: decl.clone().into()
+        });
     }
 
     fn visit_const_decl(
@@ -42,8 +58,10 @@ impl VisitorMut for SymbolCollector {
         decl: &types::ConstDeclaration,
         scope: Option<&types::Identifier>,
     ) {
-        self.syms
-            .push(parsed::Symbol::Const(decl.clone(), scope.cloned()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: (decl.clone(), scope.cloned()).into()
+        });
     }
 
     fn visit_const_arr_decl(
@@ -51,7 +69,9 @@ impl VisitorMut for SymbolCollector {
         decl: &types::ConstArrayDeclaration,
         scope: Option<&types::Identifier>,
     ) {
-        self.syms
-            .push(parsed::Symbol::ConstArray(decl.clone(), scope.cloned()));
+        self.syms.push(Symbol {
+            file_id: self.file_id,
+            kind: (decl.clone(), scope.cloned()).into()
+        });
     }
 }
