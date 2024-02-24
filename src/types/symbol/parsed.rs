@@ -37,6 +37,20 @@ impl SymbolKind {
             External(external) => external.return_type.clone(),
         }
     }
+    pub fn name_without_scope(&self) -> Vec<u8> {
+        use self::SymbolKind::*;
+
+        match self {
+            Var(decl, _scope) => decl.name.to_vec(),
+            Func(func) => func.name.to_vec(),
+            Class(class) => class.name.to_vec(),
+            Inst(inst) => inst.name.to_vec(),
+            Proto(proto) => proto.name.to_vec(),
+            Const(decl, _scope) => decl.name.to_vec(),
+            ConstArray(decl, _scope) => decl.name.to_vec(),
+            External(external) => external.name.0.clone(),
+        }
+    }
 
     pub fn name(&self) -> Vec<u8> {
         use self::SymbolKind::*;

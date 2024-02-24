@@ -300,7 +300,7 @@ impl<'a> TypeChecker<'a> {
             Call(ref call) => {
                 let (target_params, target_type) = match self
                     .parsed_syms
-                    .lookup_symbol(&call.func, None)
+                    .lookup_symbol(&call.func, scope)
                 {
                     None => {
                         self.errors.push(TypecheckError {
@@ -311,8 +311,16 @@ impl<'a> TypeChecker<'a> {
                         return Err(());
                     }
                     Some(symb) => match &symb.kind {
-                        parsed::SymbolKind::Func(func) => (&func.params, &func.typ),
-                        // parsed::SymbolKind::External(external) => (external.)
+                        parsed::SymbolKind::Func(func) => (
+                            func.params
+                                .iter()
+                                .map(|param| zPAR_TYPE::from_ident(&param.typ))
+                                .collect(),
+                            zPAR_TYPE::from_ident(&func.typ),
+                        ),
+                        parsed::SymbolKind::External(external) => {
+                            (external.parameters.clone(), external.return_type.clone())
+                        }
                         _ => {
                             self.errors.push(TypecheckError {
                                 kind: TEK::FunctionCallWrongType(call.func.clone(), symb.clone()),
@@ -337,20 +345,19 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 for (call_param, target_param) in call.params.iter().zip(target_params.iter()) {
-                    let expected = zPAR_TYPE::from_ident(&target_param.typ);
                     let actual = self.typecheck_expression(call_param, scope, file_id)?;
 
-                    if expected != actual {
+                    if target_param != &actual {
                         // TODO: Maybe reference the function definition here as well?
                         self.errors.push(TypecheckError {
-                            kind: TEK::FunctionCallParameterWrongType(expected, actual),
+                            kind: TEK::FunctionCallParameterWrongType(target_param.clone(), actual),
                             span: call_param.get_span(),
                             file_id,
                         });
                     }
                 }
 
-                Ok(zPAR_TYPE::from_ident(&target_type))
+                Ok(target_type)
             }
             Binary(ref bin) => {
                 let left = self.typecheck_expression(&bin.left, scope, file_id)?;

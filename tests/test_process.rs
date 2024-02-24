@@ -52,9 +52,9 @@ fn test_list_of_files(files: &[String]) {
     };
     let mut parsiphae = Parsiphae::new(config);
     match parsiphae.process() {
-        err @ Err(_) => {
+        Err(e) => {
+            e.render(&parsiphae.config, &parsiphae.file_db);
             src.close().unwrap();
-            err.expect("Failed to process");
         }
         Ok(_) => src.close().unwrap(),
     }
@@ -74,6 +74,19 @@ fn test_inremental() {
 fn test_bereinigte_skripte() {
     let config = Config {
         input_file: InputFile::Src("tests\\input\\bereinigte_skripte\\Gothic.src".into()),
+        json: false,
+    };
+    let mut parsiphae = Parsiphae::new(config);
+    parsiphae
+        .process()
+        .inspect_err(|e| e.render(&parsiphae.config, &parsiphae.file_db))
+        .expect("Unable to process");
+}
+
+#[test_log::test]
+fn test_error() {
+    let config = Config {
+        input_file: InputFile::SingleFile("tests/input/errors.d".into()),
         json: false,
     };
     let mut parsiphae = Parsiphae::new(config);

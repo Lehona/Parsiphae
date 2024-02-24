@@ -72,11 +72,7 @@ impl Parsiphae {
 
         // (4.1) Report errors
         if !typechk.errors.is_empty() {
-            // TODO: Make sure typechecking has file id information so the errors can actually be meanginfully rendered :)
-            log::error!("Typechecking failed with {:?}", typechk.errors);
-            return Err(PipelineFailure::TypecheckFailure(
-                vec![], /*typecheck.errors*/
-            ));
+            return Err(PipelineFailure::TypecheckFailure(typechk.errors.clone()));
         }
 
         log::info!("Typechecking succeeded.");
