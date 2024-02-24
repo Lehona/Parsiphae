@@ -43,7 +43,9 @@ impl<'a> TypeChecker<'a> {
                     let _ = self.typecheck_class(class, symbol.file_id);
                 }
                 Inst(inst) => {
-                    self.typecheck_instance(inst, symbol.file_id)?;
+                    if inst.name.name.0 != b"\xFFinstance_help" {
+                        self.typecheck_instance(inst, symbol.file_id)?;
+                    }
                 }
                 Proto(proto) => {
                     self.typecheck_prototype(proto, symbol.file_id)?;
@@ -61,6 +63,7 @@ impl<'a> TypeChecker<'a> {
                     // Intentionally left blank, only typecheck symbols at the top level
                     // Everything else will be typechecked by other symbols
                 }
+                External(_) => {}
             }
         }
 
@@ -118,7 +121,7 @@ impl<'a> TypeChecker<'a> {
                     kind: TEK::UnknownParameterType(param.typ.clone()),
                     span: param.typ.span,
                     file_id,
-            }),
+                }),
                 IsType::NotType => self
                     .errors
                     .push(TypecheckError::not_a_type(decl.typ.clone(), file_id)),
@@ -197,7 +200,6 @@ impl<'a> TypeChecker<'a> {
                         kind: TEK::IdentifierIsClassInExpression(var.name.clone(), sym.file_id),
                         span: var.span,
                         file_id,
-
                     });
                     Err(())
                 }
@@ -213,7 +215,7 @@ impl<'a> TypeChecker<'a> {
         _index: Option<&Expression>,
         instance: &Identifier,
         scope: Option<&Identifier>,
-        file_id: FileId
+        file_id: FileId,
     ) -> TCResult<zPAR_TYPE> {
         // This can be either a variable or an instance.
         let symbol = match self.parsed_syms.lookup_symbol(instance, scope) {
@@ -239,7 +241,6 @@ impl<'a> TypeChecker<'a> {
                 });
                 return Err(());
             }
-
         };
 
         let instance_type = zPAR_TYPE::from_ident(instance_type_name);
@@ -272,7 +273,7 @@ impl<'a> TypeChecker<'a> {
                 self.errors.push(TypecheckError {
                     kind: TEK::UnknownMember(class.name.clone(), name.clone(), class_file),
                     span: (instance.span.0, name.span.1),
-                    file_id
+                    file_id,
                 });
                 return Err(());
             }
@@ -297,7 +298,10 @@ impl<'a> TypeChecker<'a> {
             Float(_) => Ok(zPAR_TYPE::Float),
             String(_) => Ok(zPAR_TYPE::String),
             Call(ref call) => {
-                let target = match self.parsed_syms.lookup_symbol(&call.func, None) {
+                let (target_params, target_type) = match self
+                    .parsed_syms
+                    .lookup_symbol(&call.func, None)
+                {
                     None => {
                         self.errors.push(TypecheckError {
                             kind: TEK::UnknownFunctionCall(call.func.clone()),
@@ -306,8 +310,9 @@ impl<'a> TypeChecker<'a> {
                         }); // TODO: maybe span should be identifier only?
                         return Err(());
                     }
-                    Some(symb) => match symb.kind {
-                        parsed::SymbolKind::Func(ref func) => func,
+                    Some(symb) => match &symb.kind {
+                        parsed::SymbolKind::Func(func) => (&func.params, &func.typ),
+                        // parsed::SymbolKind::External(external) => (external.)
                         _ => {
                             self.errors.push(TypecheckError {
                                 kind: TEK::FunctionCallWrongType(call.func.clone(), symb.clone()),
@@ -319,11 +324,11 @@ impl<'a> TypeChecker<'a> {
                     },
                 };
 
-                if target.params.len() != call.params.len() {
+                if target_params.len() != call.params.len() {
                     // TODO: Maybe reference the function definition here as well?
                     self.errors.push(TypecheckError {
                         kind: TEK::FunctionCallWrongAmountOfParameters(
-                            target.params.len(),
+                            target_params.len(),
                             call.params.len(),
                         ),
                         span: call.span,
@@ -331,7 +336,7 @@ impl<'a> TypeChecker<'a> {
                     })
                 }
 
-                for (call_param, target_param) in call.params.iter().zip(target.params.iter()) {
+                for (call_param, target_param) in call.params.iter().zip(target_params.iter()) {
                     let expected = zPAR_TYPE::from_ident(&target_param.typ);
                     let actual = self.typecheck_expression(call_param, scope, file_id)?;
 
@@ -345,7 +350,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
 
-                Ok(zPAR_TYPE::from_ident(&target.typ))
+                Ok(zPAR_TYPE::from_ident(&target_type))
             }
             Binary(ref bin) => {
                 let left = self.typecheck_expression(&bin.left, scope, file_id)?;
@@ -493,7 +498,8 @@ impl<'a> TypeChecker<'a> {
                             let return_type = zPAR_TYPE::from_ident(&func.typ);
                             match &ret.exp {
                                 Some(exp) if return_type != zPAR_TYPE::Void => {
-                                    let return_exp_type = self.typecheck_expression(exp, scope, file_id)?;
+                                    let return_exp_type =
+                                        self.typecheck_expression(exp, scope, file_id)?;
                                     if return_exp_type != return_type {
                                         self.errors.push(TypecheckError {
                                             kind: TEK::ReturnExpressionDoesNotMatchReturnType(
@@ -506,7 +512,8 @@ impl<'a> TypeChecker<'a> {
                                     }
                                 }
                                 Some(exp) => {
-                                    let return_exp_type = self.typecheck_expression(exp, scope, file_id)?;
+                                    let return_exp_type =
+                                        self.typecheck_expression(exp, scope, file_id)?;
                                     self.errors.push(TypecheckError {
                                         kind: TEK::ReturnExpressionInVoidFunction(return_exp_type),
                                         span: ret.span,
@@ -610,7 +617,7 @@ impl<'a> TypeChecker<'a> {
                                 kind: TEK::NonConstantArraySize,
                                 span: constant.span,
                                 file_id,
-                                }); // TODO Add symbol kind to error msg
+                            }); // TODO Add symbol kind to error msg
                             Err(())
                         }
                     },
@@ -632,7 +639,11 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn typecheck_prototype(&mut self, proto: &types::Prototype, file_id: FileId) -> TCResult<zPAR_TYPE> {
+    fn typecheck_prototype(
+        &mut self,
+        proto: &types::Prototype,
+        file_id: FileId,
+    ) -> TCResult<zPAR_TYPE> {
         let parent = match self.parsed_syms.lookup_symbol(&proto.class, None) {
             Some(symb) => symb,
             None => {
@@ -663,7 +674,11 @@ impl<'a> TypeChecker<'a> {
         }
         Ok(zPAR_TYPE::from_ident(&proto.class))
     }
-    fn typecheck_instance(&mut self, inst: &types::Instance, file_id: FileId) -> TCResult<zPAR_TYPE> {
+    fn typecheck_instance(
+        &mut self,
+        inst: &types::Instance,
+        file_id: FileId,
+    ) -> TCResult<zPAR_TYPE> {
         let parent = match self.parsed_syms.lookup_symbol(&inst.class, None) {
             Some(symb) => symb,
             None => {
@@ -720,7 +735,7 @@ impl<'a> TypeChecker<'a> {
 
         let expression_type = self.typecheck_expression(&decl.initializer, scope, file_id)?;
         let decl_type = zPAR_TYPE::from_ident(&decl.typ);
-        if expression_type != decl_type {
+        if !decl_type.compatible(&expression_type) {
             self.errors.push(TypecheckError {
                 kind: TEK::AssignmentWrongTypes(
                     decl_type.clone(),
@@ -778,7 +793,7 @@ impl<'a> TypeChecker<'a> {
                                 kind: TEK::NonConstantArraySize,
                                 span: constant.span,
                                 file_id,
-                                }); // TODO Add symbol kind to error msg
+                            }); // TODO Add symbol kind to error msg
                         }
                     },
                     None => {
@@ -884,14 +899,16 @@ mod tests {
     fn exp_var() {
         let sc = types::SymbolCollection::with_symbols(vec![Symbol {
             kind: parsed::SymbolKind::Var(
-            types::VarDeclaration::new(
-                types::Identifier::new(b"bar", (0, 0)),
-                types::Identifier::new(b"foo", (0, 0)),
+                types::VarDeclaration::new(
+                    types::Identifier::new(b"bar", (0, 0)),
+                    types::Identifier::new(b"foo", (0, 0)),
+                    None,
+                    (0, 0),
+                ),
                 None,
-                (0, 0),
             ),
-            None),
             file_id: 0,
+            id: 0,
         }]);
         let mut tc = TypeChecker::new(&sc);
 

@@ -1,4 +1,4 @@
-use crate::lexer::Token;
+use crate::lexer::{Token, TokenKind};
 use std::path::PathBuf;
 pub type FileId = usize;
 
@@ -80,6 +80,7 @@ pub struct File {
     content: Vec<u8>,
     source: String,
     pub tokens: Vec<Token>,
+    // full_tokens: Vec<Token>,
     line_starts: Vec<usize>,
 }
 
@@ -87,11 +88,18 @@ impl File {
     pub fn new(path: PathBuf, content: Vec<u8>, tokens: Vec<Token>) -> Self {
         let source = String::from_utf8_lossy(&content).to_string();
         let line_starts = codespan_reporting::files::line_starts(&source).collect();
+        // let full_tokens = tokens.clone();
+        let tokens = tokens
+            .iter()
+            .filter(|tok| !matches!(tok.kind, TokenKind::Comment(_)))
+            .cloned()
+            .collect();
 
         File {
             path,
             content,
             source,
+            // full_tokens,
             tokens,
             line_starts,
         }

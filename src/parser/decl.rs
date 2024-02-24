@@ -173,7 +173,7 @@ impl crate::parser::parser::Parser {
         } else if self.check(TokenKind::Const) {
             self.const_decl_decl()?
         } else if self.check(TokenKind::Instance) {
-            Declaration::Inst(vec![self.instance_decl()?])
+            Declaration::Inst(self.instance_decl()?)
         } else if self.check(TokenKind::Prototype) {
             Declaration::Proto(self.prototype_decl()?)
         } else if self.check(TokenKind::Class) {

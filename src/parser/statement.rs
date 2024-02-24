@@ -8,16 +8,19 @@ use std::convert::TryInto;
 impl crate::parser::parser::Parser {
     pub fn statement(&mut self) -> Result<Statement> {
         let ice = self.freeze();
-
+        // If-statements are not necessarily followed by a semicolon...
+        let mut was_if_statement = false;
         let stmt = (|| {
             if self.check(TokenKind::If) {
-                Ok(Statement::If(Box::new(self.if_statement()?)))
+                let if_statement = self.if_statement()?;
+                was_if_statement = true;
+                Ok(Statement::If(Box::new(if_statement)))
             } else if self.check(TokenKind::Var) {
-                return Ok(Statement::VarDeclarations(self.var_decl()?));
+                Ok(Statement::VarDeclarations(self.var_decl()?))
             } else if self.check(TokenKind::Const) {
-                return self.const_decl_stmt();
+                self.const_decl_stmt()
             } else if self.check(TokenKind::Return) {
-                return self.return_statement();
+                self.return_statement()
             } else {
                 // TODO: Add handling of recoverability
                 match self.assignment() {
@@ -31,7 +34,7 @@ impl crate::parser::parser::Parser {
                     Err(e) if !e.recoverable => return Err(e),
                     _ => self.restore(ice),
                 }
-                return Err(ParsingError::from_token(
+                Err(ParsingError::from_token(
                     PEK::ExpectedOneOf(vec![
                         PP::IfClause,
                         PP::Assignment,
@@ -40,11 +43,11 @@ impl crate::parser::parser::Parser {
                     ]),
                     self.current_id(),
                     false,
-                ));
+                ))
             }
         })()?;
 
-        if let Err(_e) = self.consume(TokenKind::Semicolon) {
+        if let (Err(_e), false) = (self.consume(TokenKind::Semicolon), was_if_statement) {
             return Err(ParsingError::from_token(
                 PEK::StatementWithoutSemicolon,
                 self.current_id(),

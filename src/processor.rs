@@ -9,7 +9,7 @@ use crate::parser::parser::Parser;
 use crate::ppa::symbol_collector::SymbolCollector;
 use crate::ppa::typecheck::TypeChecker;
 use crate::src_parser::SrcParser;
-use crate::types::{SymbolCollection, AST};
+use crate::types::{gothic2_externals, SymbolCollection, AST};
 use std::io::Read;
 use std::path::Path;
 
@@ -58,6 +58,7 @@ impl Parsiphae {
 
         // (3) Turn AST into symbols
         let mut visitor = SymbolCollector::new();
+        visitor.add_externals(&gothic2_externals());
         for (file_id, ast) in &successful {
             visitor.file_id = *file_id;
             crate::ppa::visitor::visit_ast(ast, &mut visitor);
@@ -147,6 +148,7 @@ impl Parsiphae {
         let mut successful_parses = Vec::new();
         let mut erroneous_parses = Vec::new();
         for (file_id, file) in self.file_db.iter() {
+            log::trace!("Parsing file {}.", file.path.display());
             let mut parser = Parser::new(&file.tokens);
             match parser
                 .start()
@@ -156,8 +158,6 @@ impl Parsiphae {
                 Ok(parse) => successful_parses.push((file_id, parse)),
                 Err(e) => erroneous_parses.push((file_id, e)),
             }
-
-            log::trace!("Parsed file {}.", file.path.display())
         }
 
         (successful_parses, erroneous_parses)

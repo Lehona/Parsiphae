@@ -7,7 +7,7 @@ mod symbol;
 
 pub use self::printable::{PrintableByteSlice, PrintableByteVec};
 
-pub use self::base::{Identifier, StringLiteral};
+pub use self::base::{External, Identifier, StringLiteral};
 pub use self::exp::{
     BinaryExpression, BinaryOperator, Call, Expression, FloatNode, IntNode, UnaryExpression,
     UnaryOperator, VarAccess,
@@ -22,6 +22,7 @@ pub use self::statement::{
     Assignment, AssignmentOperator, IfBranch, IfStatement, ReturnStatement, Statement,
 };
 
+pub use self::symbol::externals::gothic2_externals;
 pub use self::symbol::parsed;
 pub use self::symbol::SymbolCollection;
 

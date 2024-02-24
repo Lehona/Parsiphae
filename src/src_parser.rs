@@ -46,7 +46,12 @@ impl SrcParser {
             }
         };
 
-        let dir = parent.to_string_lossy();
+        // This prefix prevents glob() from working
+        let dir = parent
+            .display()
+            .to_string()
+            .trim_start_matches("\\\\?\\")
+            .to_string();
 
         let mut result_vector = Vec::new();
 
@@ -76,7 +81,10 @@ impl SrcParser {
                     .map(|s| s.as_encoded_bytes().to_ascii_lowercase())
                 {
                     None => {
-                        log::warn!("Path '{}' has no extension, assuming '.d'.", path.display());
+                        log::warn!(
+                            "Path '{}' has no extension, assuming '.d'.",
+                            entry.display()
+                        );
                         "d"
                     }
                     Some(ext) if ext == b"src" => "src",
@@ -84,16 +92,22 @@ impl SrcParser {
                     Some(_) => {
                         return Err(SrcError::new(format!(
                             "Path '{}' has invalid extension.",
-                            path.display()
+                            entry.display()
                         ))
                         .into())
                     }
                 };
 
-                match extension {
-                    "src" => result_vector.extend(Self::parse_src(path)?),
-                    "d" => result_vector.push(path.to_path_buf()),
+                let new_paths = match extension {
+                    "src" => Self::parse_src(entry)?,
+                    "d" => vec![entry.to_path_buf()],
                     _ => unreachable!(),
+                };
+
+                for new_path in new_paths {
+                    if !result_vector.contains(&new_path) {
+                        result_vector.push(new_path);
+                    }
                 }
             }
         }

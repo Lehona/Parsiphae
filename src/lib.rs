@@ -8,6 +8,7 @@ extern crate glob;
 extern crate derive_more;
 
 pub mod config;
+pub mod dat;
 pub mod error_handler;
 pub mod errors;
 pub mod file;

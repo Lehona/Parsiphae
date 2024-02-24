@@ -56,7 +56,7 @@ impl crate::parser::parser::Parser {
         })
     }
 
-    pub fn instance_decl(&mut self) -> Result<Instance> {
+    pub fn instance_decl(&mut self) -> Result<Vec<Instance>> {
         let span_start = self.span_start()?;
         self.consume(TokenKind::Instance)?;
 
@@ -70,6 +70,13 @@ impl crate::parser::parser::Parser {
                 ))
             }
         };
+        let mut names = vec![name];
+        while match_tok!(self, TokenKind::Comma) {
+            let next_name = self.ident()?;
+            names.push(next_name);
+            self.save_progress();
+        }
+
         self.consume(TokenKind::ParenOpen)?;
         let class = match self.ident() {
             Ok(class) => class,
@@ -91,12 +98,17 @@ impl crate::parser::parser::Parser {
 
         let span_end = self.span_end()?;
 
-        Ok(Instance {
-            name,
-            class,
-            body,
-            span: (span_start, span_end),
-        })
+        let instances = names
+            .into_iter()
+            .map(|name| Instance {
+                name,
+                class: class.clone(),
+                body: body.clone(),
+                span: (span_start, span_end),
+            })
+            .collect();
+
+        Ok(instances)
     }
 
     pub fn prototype_decl(&mut self) -> Result<Prototype> {
@@ -265,9 +277,9 @@ mod tests {
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
-        let actual = parser.instance_decl().unwrap();
+        let actual = &parser.instance_decl().unwrap()[0];
 
-        assert_eq!(expected, actual);
+        assert_eq!(&expected, actual);
     }
 
     #[test]
@@ -289,9 +301,9 @@ mod tests {
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
-        let actual = parser.instance_decl().unwrap();
+        let actual = &parser.instance_decl().unwrap()[0];
 
-        assert_eq!(expected, actual);
+        assert_eq!(&expected, actual);
     }
 
     #[test]
@@ -305,8 +317,8 @@ mod tests {
         };
 
         let mut parser = Parser::new(&lexed.unwrap());
-        let actual = parser.instance_decl().unwrap();
+        let actual = &parser.instance_decl().unwrap()[0];
 
-        assert_eq!(expected, actual);
+        assert_eq!(&expected, actual);
     }
 }

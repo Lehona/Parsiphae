@@ -27,7 +27,10 @@ impl SymbolCollection {
     }
 
     pub fn set_symbols(&mut self, syms: Vec<Symbol>) {
-        self.syms = syms.into_iter().map(|symb| (SymbolName(symb.kind.name()), symb)).collect();
+        self.syms = syms
+            .into_iter()
+            .map(|symb| (SymbolName(symb.kind.name()), symb))
+            .collect();
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Symbol> {

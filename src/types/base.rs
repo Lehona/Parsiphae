@@ -1,6 +1,8 @@
 use crate::types::PrintableByteVec;
 use std::fmt::Debug;
 
+use super::parsed::zPAR_TYPE;
+
 #[derive(Clone, PartialEq)]
 pub struct StringLiteral {
     pub data: PrintableByteVec,
@@ -75,4 +77,12 @@ impl ::std::fmt::Debug for Identifier {
         let _ = self.name.fmt(f);
         write!(f, "{:?}", self.span)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct External {
+    pub name: PrintableByteVec,
+    pub parameters: Vec<zPAR_TYPE>,
+    pub return_type: zPAR_TYPE,
+    pub address: u32,
 }
