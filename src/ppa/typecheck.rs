@@ -177,7 +177,14 @@ impl<'a> TypeChecker<'a> {
     ) -> TCResult<zPAR_TYPE> {
         // TODO: Check array access / index etc.
         if let Some(ref inst) = var.instance {
-            self.typecheck_instance_access(&var.name, var.index.as_ref(), inst, scope, file_id)
+            self.typecheck_instance_access(
+                &var.name,
+                var.index.as_ref(),
+                inst,
+                scope,
+                file_id,
+                var.span,
+            )
         } else {
             let sym = {
                 let sym = self.parsed_syms.lookup_symbol(&var.name, scope);
@@ -197,7 +204,7 @@ impl<'a> TypeChecker<'a> {
             match sym.kind {
                 SymbolKind::Class(_) => {
                     self.errors.push(TypecheckError {
-                        kind: TEK::IdentifierIsClassInExpression(var.name.clone(), sym.file_id),
+                        kind: TEK::IdentifierIsClassInExpression(var.name.clone(), sym.clone()),
                         span: var.span,
                         file_id,
                     });
@@ -216,9 +223,10 @@ impl<'a> TypeChecker<'a> {
         instance: &Identifier,
         scope: Option<&Identifier>,
         file_id: FileId,
+        span: (usize, usize),
     ) -> TCResult<zPAR_TYPE> {
         // This can be either a variable or an instance.
-        let symbol = match self.parsed_syms.lookup_symbol(instance, scope) {
+        let instance_symbol = match self.parsed_syms.lookup_symbol(instance, scope) {
             Some(s) => s,
             None => {
                 self.errors.push(TypecheckError {
@@ -230,12 +238,12 @@ impl<'a> TypeChecker<'a> {
             }
         };
 
-        let instance_type_name = match &symbol.kind {
+        let instance_type_name = match &instance_symbol.kind {
             SymbolKind::Inst(inst) => &inst.class,
             SymbolKind::Var(var, _scope) => &var.typ,
             _symb => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::IdentifierIsNotInstance(instance.clone(), symbol.file_id),
+                    kind: TEK::IdentifierIsNotInstance(instance.clone(), instance_symbol.clone()),
                     span: instance.span,
                     file_id,
                 });
@@ -248,8 +256,12 @@ impl<'a> TypeChecker<'a> {
             zPAR_TYPE::Instance(_) => {}
             wrong_type => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::TypeIsPrimitive(wrong_type),
-                    span: instance.span,
+                    kind: TEK::TypeIsPrimitive(
+                        instance_symbol.clone(),
+                        name.clone(),
+                        wrong_type.clone(),
+                    ),
+                    span: span,
                     file_id,
                 });
                 return Err(());
@@ -257,11 +269,11 @@ impl<'a> TypeChecker<'a> {
         };
 
         // TODO: I think this could be a Proto as well, need to recursively look that up
-        let (class, class_file) = match self.parsed_syms.lookup_symbol(instance_type_name, None) {
+        let (class, symb) = match self.parsed_syms.lookup_symbol(instance_type_name, None) {
             // If this is not actually a class, we will typecheck that at another point, hence we do not emit an error here
             // (to prevent duplicate errors)
             Some(class_symb) => match &class_symb.kind {
-                SymbolKind::Class(class) => (class, class_symb.file_id),
+                SymbolKind::Class(class) => (class, class_symb),
                 _ => return Err(()),
             },
             None => return Err(()),
@@ -271,7 +283,7 @@ impl<'a> TypeChecker<'a> {
             Some(member) => member,
             None => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::UnknownMember(class.name.clone(), name.clone(), class_file),
+                    kind: TEK::UnknownMember(symb.clone(), name.clone(), instance_symbol.clone()),
                     span: (instance.span.0, name.span.1),
                     file_id,
                 });
@@ -668,7 +680,10 @@ impl<'a> TypeChecker<'a> {
             parsed::SymbolKind::Proto(proto) => &proto.class, // TODO an invalid prototype (e.g. invalid proto's parent) might produce a lot of errors
             _ => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::InstanceParentNotClassOrProto(proto.class.clone(), ()),
+                    kind: TEK::InstanceParentNotClassOrProto(
+                        proto.class.clone(),
+                        parent.kind.clone(),
+                    ),
                     span: (proto.span.0, proto.class.span.1),
                     file_id,
                 }); // TODO really make sure these spans make any sense
@@ -703,7 +718,10 @@ impl<'a> TypeChecker<'a> {
             parsed::SymbolKind::Proto(proto) => &proto.class, // TODO an invalid prototype (e.g. invalid proto's parent) might produce a lot of errors
             _ => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::InstanceParentNotClassOrProto(inst.class.clone(), ()),
+                    kind: TEK::InstanceParentNotClassOrProto(
+                        inst.class.clone(),
+                        parent.kind.clone(),
+                    ),
                     span: (inst.span.0, inst.class.span.1),
                     file_id,
                 }); // TODO really make sure these spans make any sense
@@ -854,7 +872,10 @@ mod tests {
     use crate::{
         lexer::Lexer,
         ppa::symbol_collector::SymbolCollector,
-        types::{parsed::Symbol, FloatNode, Identifier, IntNode, SymbolCollection, AST},
+        types::{
+            parsed::Symbol, Class, FloatNode, Function, Identifier, IntNode, SymbolCollection,
+            VarDeclaration, AST,
+        },
     };
 
     use super::*;
@@ -1078,16 +1099,34 @@ mod tests {
     fn basic_member_missing() {
         let expected = vec![TypecheckError {
             kind: TEK::UnknownMember(
-                Identifier::new(b"foo", (6, 9)),
-                Identifier::new(b"bax", (63, 66)),
-                0,
+                Symbol {
+                    id: 1,
+                    file_id: 0,
+                    kind: SymbolKind::Class(Class {
+                        name: Identifier::new(b"foo", (6, 9)),
+                        members: vec![],
+                    }),
+                },
+                Identifier::new(b"bax", (50, 53)),
+                Symbol {
+                    id: 3,
+                    file_id: 0,
+                    kind: SymbolKind::Var(
+                        VarDeclaration {
+                            typ: Identifier::new(b"foo", (37, 40)),
+                            name: Identifier::new(b"fox", (41, 44)),
+                            array_size: None,
+                            span: (33, 45),
+                        },
+                        Some(Identifier::new(b"baz", (25, 28))),
+                    ),
+                },
             ),
-            span: (59, 66),
+            span: (46, 53),
             file_id: 0,
         }];
-        let actual = setup_typecheck_errors(
-            b"class foo { var int bar; }; func void baz() { var foo fox; fox.bax; };",
-        );
+        let actual =
+            setup_typecheck_errors(b"class foo { }; func void baz() { var foo fox; fox.bax; };");
 
         assert_eq!(expected, actual);
     }
@@ -1109,8 +1148,24 @@ mod tests {
     #[test]
     fn basic_member_primitive_base() {
         let expected = vec![TypecheckError {
-            kind: TEK::TypeIsPrimitive(zPAR_TYPE::Int),
-            span: (31, 34),
+            kind: TEK::TypeIsPrimitive(
+                Symbol {
+                    file_id: 0,
+                    id: 2,
+                    kind: SymbolKind::Var(
+                        VarDeclaration {
+                            typ: Identifier::new(b"int", (22, 25)),
+                            name: Identifier::new(b"fox", (26, 29)),
+                            array_size: None,
+                            span: (18, 30),
+                        },
+                        Some(Identifier::new(b"baz", (10, 13))),
+                    ),
+                },
+                Identifier::new(b"bar", (35, 38)),
+                zPAR_TYPE::Int,
+            ),
+            span: (31, 38),
             file_id: 0,
         }];
         let actual = setup_typecheck_errors(b"func void baz() { var int fox; fox.bar; };");
@@ -1121,7 +1176,26 @@ mod tests {
     #[test]
     fn basic_member_wrong_identifier() {
         let expected = vec![TypecheckError {
-            kind: TEK::IdentifierIsNotInstance(Identifier::new(b"baz", (18, 21)), 0),
+            kind: TEK::IdentifierIsNotInstance(
+                Identifier::new(b"baz", (18, 21)),
+                Symbol {
+                    file_id: 0,
+                    id: 1,
+                    kind: SymbolKind::Func(Function {
+                        name: Identifier::new(b"baz", (10, 13)),
+                        typ: Identifier::new(b"void", (5, 9)),
+                        params: vec![],
+                        body: vec![Statement::Exp(Expression::Identifier(Box::new(
+                            VarAccess {
+                                name: Identifier::new(b"bar", (18, 21)),
+                                instance: Some(Identifier::new(b"baz", (22, 25))),
+                                index: None,
+                                span: (18, 25),
+                            },
+                        )))],
+                    }),
+                },
+            ),
             span: (18, 21),
             file_id: 0,
         }];

@@ -6,6 +6,7 @@ use codespan_reporting::{
     },
 };
 
+use crate::diagnostics::diagnostics::Diagnostic as DiagnosticP;
 use crate::{
     config::Config,
     errors::PipelineFailure,
@@ -236,116 +237,19 @@ fn statement_without_semicolon(file_db: &FileDb, file_id: usize, token_end: usiz
 }
 
 pub fn process_typecheck_error(file_db: &FileDb, error: &TypecheckError) {
-    match &error.kind {
-        crate::ppa::errors::TypecheckErrorKind::InternalFailure(_) => {
-            internal_parser_failure(file_db, error.file_id)
-        } // TODO: Print message
-        crate::ppa::errors::TypecheckErrorKind::UnknownIdentifier(vec) => {
-            render_unknown_identifier(file_db, error, vec)
-        }
-        crate::ppa::errors::TypecheckErrorKind::UnknownReturnType(ident) => {
-            render_unknown_return_type(file_db, error, ident)
-        }
-        crate::ppa::errors::TypecheckErrorKind::UnknownParameterType(ident) => {
-            render_unknown_parameter_type(file_db, error, ident)
-        }
-        crate::ppa::errors::TypecheckErrorKind::UnknownFunctionCall(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::UnknownVariableType(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::FunctionCallWrongType(call, target) => {
-            render_function_call_wrong_type(file_db, error, call, target)
-        }
-        crate::ppa::errors::TypecheckErrorKind::UnknownIdentifierInExpression(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::IdentifierIsClassInExpression(_, _) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::FunctionCallParameterWrongType(_, _) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::FunctionCallWrongAmountOfParameters(_, _) => {
-            todo!()
-        }
-        crate::ppa::errors::TypecheckErrorKind::BinaryExpressionNotInt => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::UnaryExpressionNotInt => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::AssignmentWrongTypes(_, _, _, _) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::WrongTypeInArrayInitialization(_, _, _, _) => {
-            todo!()
-        }
-        crate::ppa::errors::TypecheckErrorKind::CanOnlyAssignToString => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::CanOnlyAssignToFloat => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::CanOnlyAssignToInstance => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::ConditionNotInt(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::ReturnExpressionDoesNotMatchReturnType(_, _) => {
-            todo!()
-        }
-        crate::ppa::errors::TypecheckErrorKind::ReturnWithoutExpression(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::ReturnExpressionInVoidFunction(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::UnknownIdentifierInArraySize(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::NonConstantArraySize => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::ArraySizeIsNotInteger(_, _) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::InstanceHasUnknownParent(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::InstanceParentNotClassOrProto(_, _) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::IdentifierIsNotType(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::IdentifierIsNotInstance(_, _) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::TypeIsPrimitive(_) => todo!(),
-        crate::ppa::errors::TypecheckErrorKind::UnknownMember(_, _, _) => todo!(),
-    }
+    emit_diagnostics(error.to_diagnostic(), file_db);
 }
 
-fn render_unknown_parameter_type(file_db: &FileDb, error: &TypecheckError, ident: &Identifier) {
-    let message = format!(
-        "Unknown parameter type: {}",
-        String::from_utf8_lossy(&ident.name.0)
-    );
+pub fn emit_diagnostics(diagnostics: DiagnosticP, file_db: &FileDb) {
+    let labels = diagnostics
+        .labels
+        .into_iter()
+        .map(|lbl| lbl.to_report())
+        .collect();
+    let report = Diagnostic::error()
+        .with_message(diagnostics.message)
+        .with_code(diagnostics.code)
+        .with_labels(labels);
 
-    let label = Label::primary(error.file_id, error.span.0..error.span.1)
-        .with_message("This parameter's type is not defined anywhere.");
-    let diagnostic = Diagnostic::error()
-        .with_message(message)
-        .with_labels(vec![label]);
-
-    emit_source_error(file_db, &diagnostic);
-}
-
-fn render_function_call_wrong_type(
-    file_db: &FileDb,
-    error: &TypecheckError,
-    call: &Identifier,
-    target: &Symbol,
-) {
-    let message = format!("Trying to call something that is not a function.");
-    let target_name = String::from_utf8_lossy(&target.kind.name_without_scope()).to_string();
-    let label = Label::primary(error.file_id, call.span.0..call.span.1)
-        .with_message(format!("Here is the function call to '{target_name}'."));
-    let target_span = target.kind.span();
-    let label2 = Label::secondary(target.file_id, target_span.0..target_span.1).with_message(
-        format!("But '{target_name}' is defined here and not a function."),
-    );
-    let diagnostic = Diagnostic::error()
-        .with_message(message)
-        .with_labels(vec![label, label2]);
-
-    emit_source_error(file_db, &diagnostic);
-}
-
-fn render_unknown_return_type(file_db: &FileDb, error: &TypecheckError, ident: &Identifier) {
-    let message = format!(
-        "Unknown return type: {}",
-        String::from_utf8_lossy(&ident.name.0)
-    );
-
-    let label = Label::primary(error.file_id, error.span.0..error.span.1)
-        .with_message("This return type is not defined anywhere.");
-    let diagnostic = Diagnostic::error()
-        .with_message(message)
-        .with_labels(vec![label]);
-
-    emit_source_error(file_db, &diagnostic);
-}
-
-fn render_unknown_identifier(file_db: &FileDb, error: &TypecheckError, vec: &[u8]) {
-    let message = format!("Unknown identifier: {}", String::from_utf8_lossy(vec));
-
-    let label = Label::primary(error.file_id, error.span.0..error.span.1)
-        .with_message("This identifier is not defined anywhere.");
-    let diagnostic = Diagnostic::error()
-        .with_message(message)
-        .with_labels(vec![label]);
-
-    emit_source_error(file_db, &diagnostic);
+    emit_source_error(file_db, &report);
 }

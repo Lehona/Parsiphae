@@ -127,6 +127,24 @@ pub enum zPAR_TYPE {
     Instance(types::Identifier),
 }
 
+impl std::fmt::Display for zPAR_TYPE {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use zPAR_TYPE::*;
+        write!(
+            f,
+            "{}",
+            match self {
+                Void => "void".into(),
+                Int => "int".into(),
+                Float => "float".into(),
+                String => "string".into(),
+                Func => "func".into(),
+                Instance(ident) => ident.to_string(),
+            }
+        )
+    }
+}
+
 impl zPAR_TYPE {
     pub fn from_ident(ident: &types::Identifier) -> Self {
         let ident_b = ident.as_bytes();

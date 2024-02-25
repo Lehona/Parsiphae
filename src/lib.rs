@@ -9,7 +9,7 @@ extern crate derive_more;
 
 pub mod config;
 pub mod dat;
-pub mod error_handler;
+pub mod diagnostics;
 pub mod errors;
 pub mod file;
 pub mod json;
