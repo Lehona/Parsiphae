@@ -82,7 +82,7 @@ pub struct Token {
 impl Token {
     pub fn stringified(&self) -> String {
         match &self.kind {
-            TokenKind::Comment(c) => format!("// {}", c.replace('\n', "\\n")),
+            TokenKind::Comment(c) => format!("// {}", c.replace("\r\n", "\n").replace('\n', "\\n")),
             TokenKind::Identifier(id) => String::from_utf8_lossy(id).to_uppercase().to_string(),
             TokenKind::StringLit(s) => format!("\"{}\"", String::from_utf8_lossy(s)),
             _ => format!("{:?}", self.kind).to_uppercase(),
