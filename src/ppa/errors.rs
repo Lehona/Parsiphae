@@ -46,22 +46,23 @@ pub enum TypecheckErrorKind {
     CanOnlyAssignToInstance,
     /// The condition in an if clause is something else than Int
     ConditionNotInt(zPAR_TYPE),
-    /// 1 is function return type, 2 is type of return expression
-    ReturnExpressionDoesNotMatchReturnType(Identifier, zPAR_TYPE),
+    /// 1 is return expression type, 2 is Function
+    ReturnExpressionDoesNotMatchReturnType(zPAR_TYPE, Symbol),
     /// 1 is the return type of the function
-    ReturnWithoutExpression(Identifier),
-    /// The return expression has the given type
-    ReturnExpressionInVoidFunction(zPAR_TYPE),
+    ReturnWithoutExpression(zPAR_TYPE, Symbol),
+    /// The return expression has the given type, but the function is in Symbol.
+    ReturnExpressionInVoidFunction(zPAR_TYPE, Symbol),
     UnknownIdentifierInArraySize(Identifier),
     /// Array Size is an Identifier that does not point to a constant
+    // TODO: this could be improved by reporting what exactly was used instead.
     NonConstantArraySize,
-    /// Array Size is an Identifier of wrong type, Identifier defined at 2
-    ArraySizeIsNotInteger(zPAR_TYPE, Span),
+    /// Array Size is an Identifier '1' of wrong type defined at '2'
+    ArraySizeIsNotInteger(Identifier, Symbol),
     InstanceHasUnknownParent(Identifier),
     /// The parent 1 is not a class or prototype, instead the symbol is kind 2
-    InstanceParentNotClassOrProto(Identifier, SymbolKind),
-    /// An identifier is used in type-position, but is not actually a type.
-    IdentifierIsNotType(Identifier),
+    InstanceParentNotClassOrProto(Identifier, Symbol),
+    /// An identifier is used in type-position, but is not actually a type. The actual symbol is defined in 'Symbol'
+    IdentifierIsNotType(Identifier, Symbol),
     /// An identifier is used in instance-position (inst.member), but is not suitable. That identifier is defined in 'Symbol'
     IdentifierIsNotInstance(Identifier, Symbol),
     /// A variable of the given type was accessed like an instance (inst.member), the variable is defined in '1', and the accessed member is '2'
@@ -79,10 +80,10 @@ pub struct TypecheckError {
 }
 
 impl TypecheckError {
-    pub fn not_a_type(identifier: Identifier, file_id: FileId) -> Self {
+    pub fn not_a_type(identifier: Identifier, symbol: Symbol, file_id: FileId) -> Self {
         Self {
             span: identifier.span,
-            kind: TypecheckErrorKind::IdentifierIsNotType(identifier),
+            kind: TypecheckErrorKind::IdentifierIsNotType(identifier, symbol),
             file_id,
         }
     }
@@ -109,14 +110,14 @@ impl TypecheckError {
             TypecheckErrorKind::CanOnlyAssignToInstance => "TC017".into(),
             TypecheckErrorKind::ConditionNotInt(_) => "TC018".into(),
             TypecheckErrorKind::ReturnExpressionDoesNotMatchReturnType(_, _) => "TC019".into(),
-            TypecheckErrorKind::ReturnWithoutExpression(_) => "TC020".into(),
-            TypecheckErrorKind::ReturnExpressionInVoidFunction(_) => "TC021".into(),
+            TypecheckErrorKind::ReturnWithoutExpression(_, _) => "TC020".into(),
+            TypecheckErrorKind::ReturnExpressionInVoidFunction(_, _) => "TC021".into(),
             TypecheckErrorKind::UnknownIdentifierInArraySize(_) => "TC022".into(),
             TypecheckErrorKind::NonConstantArraySize => "TC023".into(),
             TypecheckErrorKind::ArraySizeIsNotInteger(_, _) => "TC024".into(),
             TypecheckErrorKind::InstanceHasUnknownParent(_) => "TC025".into(),
             TypecheckErrorKind::InstanceParentNotClassOrProto(_, _) => "TC026".into(),
-            TypecheckErrorKind::IdentifierIsNotType(_) => "TC027".into(),
+            TypecheckErrorKind::IdentifierIsNotType(_, _) => "TC027".into(),
             TypecheckErrorKind::IdentifierIsNotInstance(_, _) => "TC028".into(),
             TypecheckErrorKind::TypeIsPrimitive(_, _, _) => "TC029".into(),
             TypecheckErrorKind::UnknownMember(_, _, _) => "TC030".into(),
@@ -252,21 +253,202 @@ impl TypecheckError {
             TypecheckErrorKind::UnaryExpressionNotInt => todo!(),
             TypecheckErrorKind::AssignmentWrongTypes(_, _, _, _) => todo!(),
             TypecheckErrorKind::WrongTypeInArrayInitialization(_, _, _, _) => todo!(),
-            TypecheckErrorKind::CanOnlyAssignToString => todo!(),
-            TypecheckErrorKind::CanOnlyAssignToFloat => todo!(),
-            TypecheckErrorKind::CanOnlyAssignToInstance => todo!(),
-            TypecheckErrorKind::ConditionNotInt(_) => todo!(),
-            TypecheckErrorKind::ReturnExpressionDoesNotMatchReturnType(_, _) => todo!(),
-            TypecheckErrorKind::ReturnWithoutExpression(_) => todo!(),
-            TypecheckErrorKind::ReturnExpressionInVoidFunction(_) => todo!(),
-            TypecheckErrorKind::UnknownIdentifierInArraySize(_) => todo!(),
-            TypecheckErrorKind::NonConstantArraySize => todo!(),
-            TypecheckErrorKind::ArraySizeIsNotInteger(_, _) => todo!(),
-            TypecheckErrorKind::InstanceHasUnknownParent(_) => todo!(),
-            TypecheckErrorKind::InstanceParentNotClassOrProto(_, _) => todo!(),
-            TypecheckErrorKind::IdentifierIsNotType(_) => todo!(),
+            TypecheckErrorKind::CanOnlyAssignToString => Diagnostic {
+                message: format!("Strings only support assignment (no +=, *=, ...)."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You can only use '=' here"),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    }
+                ]
+            },
+            TypecheckErrorKind::CanOnlyAssignToFloat => Diagnostic {
+                message: format!("Floats only support assignment (no +=, *=, ...)."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You can only use '=' here"),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    }
+                ]
+            },
+            TypecheckErrorKind::CanOnlyAssignToInstance => Diagnostic {
+                message: format!("Instances only support assignment (no +=, *=, ...)."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You can only use '=' here"),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    }
+                ]
+            },
+            TypecheckErrorKind::ConditionNotInt(typ) => Diagnostic {
+                message: format!("Non-integer condition in an if-clause."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("This expression has type '{typ}', but only integers are allowed here."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    }
+                ]
+            },
+            TypecheckErrorKind::ReturnExpressionDoesNotMatchReturnType(typ, func) => Diagnostic {
+                message: format!("Return expression does not match function's return type."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("This return statement has type '{typ}', but the function's return type is '{func_type}'.", func_type = func.kind.typ()),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("The return type is defined here, but it's '{func_type}'. Did you mean '{typ}'?", func_type = func.kind.typ()),
+                        file_id: func.file_id,
+                        span: func.kind.typ_ident().span,
+                        primary: false,
+                    }
+                ]
+            },
+            TypecheckErrorKind::ReturnWithoutExpression(typ, func) => Diagnostic {
+                message: format!("A return is missing an expression."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("This return statement has no expression, but the function's return type is '{typ}'."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("The return type is defined here, but it's not 'void'."),
+                        file_id: func.file_id,
+                        span: func.kind.typ_ident().span,
+                        primary: false,
+                    }
+                ]
+            },
+            TypecheckErrorKind::ReturnExpressionInVoidFunction(typ, func) => Diagnostic {
+                message: format!("Return expression in void function."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("This return statement has an expression of type '{typ}', but the function's return type is 'void'."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("The return type is defined here, did you mean '{typ}'?"),
+                        file_id: func.file_id,
+                        span: func.kind.typ_ident().span,
+                        primary: false,
+                    }
+                ]
+            },
+            TypecheckErrorKind::UnknownIdentifierInArraySize(ident) => {
+                Diagnostic {
+                    message: format!("Unknown Identifier in array size: {}", ident),
+                    code,
+                    labels: vec![
+                        Label {
+                            message: "This identifier is not defined anywhere.".into(),
+                            file_id: self.file_id,
+                            span: self.span,
+                            primary: true,
+                        }
+                    ]
+                }
+            },
+            TypecheckErrorKind::NonConstantArraySize => Diagnostic {
+                message: format!("Only constants are allowed in array sizes."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You're using a non-constant array size here."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    }
+                ]
+            },
+            TypecheckErrorKind::ArraySizeIsNotInteger(ident, symbol) => Diagnostic {
+                message: format!("Attempting to use a non-integer constant as array size."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You're using '{ident}' as the array size here, but it has type '{}'.", symbol.kind.typ()),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("'{ident}' is defined here but it has type '{}'", symbol.kind.typ()),
+                        file_id: symbol.file_id,
+                        span: symbol.kind.span(),
+                        primary: false,
+                    }
+                ]
+            },
+            TypecheckErrorKind::InstanceHasUnknownParent(ident) => Diagnostic {
+                message: format!("An instance has an unknown parent class."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("The parent class '{ident}' is unknown."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    }
+                ]
+            },
+            TypecheckErrorKind::InstanceParentNotClassOrProto(ident, symbol) => Diagnostic {
+                message: format!("The parent of an instance is neither a class nor a prototype."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You're using '{ident}' as the parent of an instance here."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("'{ident}' is defined here, but it's neither a class nor a prototype."),
+                        file_id: symbol.file_id,
+                        span: symbol.kind.span(),
+                        primary: false,
+                    }
+                ]
+            },
+            TypecheckErrorKind::IdentifierIsNotType(ident, symbol) => Diagnostic {
+                message: format!("An identifier is used in type position, but it is not a type."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("You're using '{ident}' here as a type."),
+                        file_id: self.file_id,
+                        span: self.span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("'{ident}' is defined here, but it's not a type."),
+                        file_id: symbol.file_id,
+                        span: symbol.kind.span(),
+                        primary: false
+                    }
+                ]
+            },
             TypecheckErrorKind::IdentifierIsNotInstance(ident, symbol) => Diagnostic {
-                message: format!("Attempting to access a member but target is not an instance."),
+                message: format!("Attempting to access a class member but target is not an instance."),
                 code,
                 labels: vec![
                     Label {

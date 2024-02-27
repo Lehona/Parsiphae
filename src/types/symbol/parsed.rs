@@ -1,15 +1,21 @@
-use crate::{file::db::FileId, types};
+use crate::{
+    file::db::FileId,
+    types::{
+        Class, ConstArrayDeclaration, ConstDeclaration, External, Function, Identifier, Instance,
+        Prototype, VarDeclaration,
+    },
+};
 
 #[derive(Debug, Clone, PartialEq, From)]
 pub enum SymbolKind {
-    Var(types::VarDeclaration, Option<types::Identifier>),
-    Func(types::Function),
-    Class(types::Class),
-    Inst(types::Instance),
-    Proto(types::Prototype),
-    Const(types::ConstDeclaration, Option<types::Identifier>),
-    ConstArray(types::ConstArrayDeclaration, Option<types::Identifier>),
-    External(types::External),
+    Var(VarDeclaration, Option<Identifier>),
+    Func(Function),
+    Class(Class),
+    Inst(Instance),
+    Proto(Prototype),
+    Const(ConstDeclaration, Option<Identifier>),
+    ConstArray(ConstArrayDeclaration, Option<Identifier>),
+    External(External),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +41,26 @@ impl SymbolKind {
             Const(constant, _) => zPAR_TYPE::from_ident(&constant.typ),
             ConstArray(constant, _) => zPAR_TYPE::from_ident(&constant.typ),
             External(external) => external.return_type.clone(),
+        }
+    }
+
+    pub fn typ_ident(&self) -> Identifier {
+        use self::SymbolKind::*;
+
+        match self {
+            Var(decl, _) => decl.typ.clone(),
+            Func(func) => func.typ.clone(),
+            Class(class) => class.name.clone(),
+            Inst(inst) => {
+                // TODO implement recursive lookup of instance type (in case of prototype)
+                inst.class.clone()
+            }
+            Proto(proto) => proto.class.clone(),
+            Const(constant, _) => constant.typ.clone(),
+            ConstArray(constant, _) => constant.typ.clone(),
+            External(external) => {
+                Identifier::new(&format!("{}", external.return_type).into_bytes(), (0, 0))
+            }
         }
     }
     pub fn name_without_scope(&self) -> Vec<u8> {
@@ -124,7 +150,7 @@ pub enum zPAR_TYPE {
     Float,
     String,
     Func,
-    Instance(types::Identifier),
+    Instance(Identifier),
 }
 
 impl std::fmt::Display for zPAR_TYPE {
@@ -146,7 +172,7 @@ impl std::fmt::Display for zPAR_TYPE {
 }
 
 impl zPAR_TYPE {
-    pub fn from_ident(ident: &types::Identifier) -> Self {
+    pub fn from_ident(ident: &Identifier) -> Self {
         let ident_b = ident.as_bytes();
 
         if ident_b.eq_ignore_ascii_case(b"int") {

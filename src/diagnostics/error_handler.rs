@@ -14,7 +14,6 @@ use crate::{
     json::{JsonError, ParsiphaeJson},
     parser::errors::{ParsingError, ParsingErrorKind as PEK},
     ppa::errors::TypecheckError,
-    types::{parsed::Symbol, Identifier},
 };
 
 impl PipelineFailure {

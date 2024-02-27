@@ -29,7 +29,7 @@ strum = { version = "0.26.1", features = ["derive"] }
 test-log = "0.2.14"
 deku = { version = "0.16.0", git = "https://github.com/sharksforarms/deku", branch = "impl-reader-bit-order2" }
 bitflags = "2.4.2"
-codespan-reporting = { version = "0.11.1", git = "https://github.com/brendanzab/codespan", ref = "c604dc4f0f496b3566280eda220f98820ddf675a" }
+codespan-reporting = { version = "0.11.1", git = "https://github.com/brendanzab/codespan" }
 
 [dev-dependencies]
 tempfile = "3.10.0"

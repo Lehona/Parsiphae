@@ -109,9 +109,14 @@ impl<'a> TypeChecker<'a> {
                 span: decl.typ.span,
                 file_id,
             }),
-            IsType::NotType => self
-                .errors
-                .push(TypecheckError::not_a_type(decl.typ.clone(), file_id)),
+            IsType::NotType => self.errors.push(TypecheckError::not_a_type(
+                decl.typ.clone(),
+                self.parsed_syms
+                    .lookup_symbol(&decl.typ, None)
+                    .unwrap()
+                    .clone(),
+                file_id,
+            )),
             IsType::IsType => {}
         }
 
@@ -122,9 +127,14 @@ impl<'a> TypeChecker<'a> {
                     span: param.typ.span,
                     file_id,
                 }),
-                IsType::NotType => self
-                    .errors
-                    .push(TypecheckError::not_a_type(decl.typ.clone(), file_id)),
+                IsType::NotType => self.errors.push(TypecheckError::not_a_type(
+                    decl.typ.clone(),
+                    self.parsed_syms
+                        .lookup_symbol(&decl.typ, None)
+                        .unwrap()
+                        .clone(),
+                    file_id,
+                )),
                 IsType::IsType => {}
             }
         }
@@ -522,8 +532,8 @@ impl<'a> TypeChecker<'a> {
                                     if return_exp_type != return_type {
                                         self.errors.push(TypecheckError {
                                             kind: TEK::ReturnExpressionDoesNotMatchReturnType(
-                                                func.typ.clone(),
                                                 return_exp_type,
+                                                symb.clone(),
                                             ),
                                             span: exp.get_span(),
                                             file_id,
@@ -534,7 +544,10 @@ impl<'a> TypeChecker<'a> {
                                     let return_exp_type =
                                         self.typecheck_expression(exp, scope, file_id)?;
                                     self.errors.push(TypecheckError {
-                                        kind: TEK::ReturnExpressionInVoidFunction(return_exp_type),
+                                        kind: TEK::ReturnExpressionInVoidFunction(
+                                            return_exp_type,
+                                            symb.clone(),
+                                        ),
                                         span: ret.span,
                                         file_id,
                                     });
@@ -542,7 +555,10 @@ impl<'a> TypeChecker<'a> {
                                 None if return_type == zPAR_TYPE::Void => return Ok(()),
                                 None => {
                                     self.errors.push(TypecheckError {
-                                        kind: TEK::ReturnWithoutExpression(func.typ.clone()),
+                                        kind: TEK::ReturnWithoutExpression(
+                                            return_type.clone(),
+                                            symb.clone(),
+                                        ),
                                         span: ret.span,
                                         file_id,
                                     });
@@ -609,9 +625,14 @@ impl<'a> TypeChecker<'a> {
                 span: decl.typ.span,
                 file_id,
             }),
-            IsType::NotType => self
-                .errors
-                .push(TypecheckError::not_a_type(decl.typ.clone(), file_id)),
+            IsType::NotType => self.errors.push(TypecheckError::not_a_type(
+                decl.typ.clone(),
+                self.parsed_syms
+                    .lookup_symbol(&decl.typ, scope)
+                    .unwrap()
+                    .clone(),
+                file_id,
+            )),
             IsType::IsType => {}
         }
 
@@ -623,7 +644,10 @@ impl<'a> TypeChecker<'a> {
                             let const_type = zPAR_TYPE::from_ident(&const_decl.typ);
                             if const_type != zPAR_TYPE::Int {
                                 self.errors.push(TypecheckError {
-                                    kind: TEK::ArraySizeIsNotInteger(const_type, const_decl.span),
+                                    kind: TEK::ArraySizeIsNotInteger(
+                                        constant.clone(),
+                                        symb.clone(),
+                                    ),
                                     span: constant.span,
                                     file_id,
                                 });
@@ -668,7 +692,7 @@ impl<'a> TypeChecker<'a> {
             None => {
                 self.errors.push(TypecheckError {
                     kind: TEK::InstanceHasUnknownParent(proto.class.clone()),
-                    span: (proto.span.0, proto.class.span.1),
+                    span: (proto.class.span.0, proto.class.span.1),
                     file_id,
                 }); // TODO really make sure these spans make any sense
                 return Err(()); // Trying to typecheck with a "wrong" scope will lead to tons of followup errors, better to just stop
@@ -680,11 +704,8 @@ impl<'a> TypeChecker<'a> {
             parsed::SymbolKind::Proto(proto) => &proto.class, // TODO an invalid prototype (e.g. invalid proto's parent) might produce a lot of errors
             _ => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::InstanceParentNotClassOrProto(
-                        proto.class.clone(),
-                        parent.kind.clone(),
-                    ),
-                    span: (proto.span.0, proto.class.span.1),
+                    kind: TEK::InstanceParentNotClassOrProto(proto.class.clone(), parent.clone()),
+                    span: (proto.class.span.0, proto.class.span.1),
                     file_id,
                 }); // TODO really make sure these spans make any sense
                 return Err(()); // Trying to typecheck with a "wrong" scope will lead to tons of followup errors, better to just stop
@@ -706,7 +727,7 @@ impl<'a> TypeChecker<'a> {
             None => {
                 self.errors.push(TypecheckError {
                     kind: TEK::InstanceHasUnknownParent(inst.class.clone()),
-                    span: (inst.span.0, inst.class.span.1),
+                    span: (inst.class.span.0, inst.class.span.1),
                     file_id,
                 }); // TODO really make sure these spans make any sense
                 return Err(()); // Trying to typecheck with a "wrong" scope will lead to tons of followup errors, better to just stop
@@ -718,11 +739,8 @@ impl<'a> TypeChecker<'a> {
             parsed::SymbolKind::Proto(proto) => &proto.class, // TODO an invalid prototype (e.g. invalid proto's parent) might produce a lot of errors
             _ => {
                 self.errors.push(TypecheckError {
-                    kind: TEK::InstanceParentNotClassOrProto(
-                        inst.class.clone(),
-                        parent.kind.clone(),
-                    ),
-                    span: (inst.span.0, inst.class.span.1),
+                    kind: TEK::InstanceParentNotClassOrProto(inst.class.clone(), parent.clone()),
+                    span: (inst.class.span.0, inst.class.span.1),
                     file_id,
                 }); // TODO really make sure these spans make any sense
                 return Err(()); // Trying to typecheck with a "wrong" scope will lead to tons of followup errors, better to just stop
@@ -743,8 +761,14 @@ impl<'a> TypeChecker<'a> {
     ) -> TCResult<zPAR_TYPE> {
         match self.is_type(&decl.typ) {
             IsType::NotType => {
-                self.errors
-                    .push(TypecheckError::not_a_type(decl.typ.clone(), file_id));
+                self.errors.push(TypecheckError::not_a_type(
+                    decl.typ.clone(),
+                    self.parsed_syms
+                        .lookup_symbol(&decl.typ, scope)
+                        .unwrap()
+                        .clone(),
+                    file_id,
+                ));
                 return Err(());
             }
             IsType::UnknownIdentifier => {
@@ -784,8 +808,14 @@ impl<'a> TypeChecker<'a> {
     ) -> TCResult<zPAR_TYPE> {
         match self.is_type(&decl.typ) {
             IsType::NotType => {
-                self.errors
-                    .push(TypecheckError::not_a_type(decl.typ.clone(), file_id));
+                self.errors.push(TypecheckError::not_a_type(
+                    decl.typ.clone(),
+                    self.parsed_syms
+                        .lookup_symbol(&decl.typ, scope)
+                        .unwrap()
+                        .clone(),
+                    file_id,
+                ));
                 return Err(());
             }
             IsType::UnknownIdentifier => {
@@ -807,7 +837,10 @@ impl<'a> TypeChecker<'a> {
                             let const_type = zPAR_TYPE::from_ident(&const_decl.typ);
                             if const_type != zPAR_TYPE::Int {
                                 self.errors.push(TypecheckError {
-                                    kind: TEK::ArraySizeIsNotInteger(const_type, const_decl.span),
+                                    kind: TEK::ArraySizeIsNotInteger(
+                                        constant.clone(),
+                                        symb.clone(),
+                                    ),
                                     span: constant.span,
                                     file_id,
                                 });
@@ -873,8 +906,8 @@ mod tests {
         lexer::Lexer,
         ppa::symbol_collector::SymbolCollector,
         types::{
-            parsed::Symbol, Class, FloatNode, Function, Identifier, IntNode, SymbolCollection,
-            VarDeclaration, AST,
+            parsed::Symbol, Class, FloatNode, Function, Identifier, IntNode, PrintableByteVec,
+            ReturnStatement, StringLiteral, SymbolCollection, VarDeclaration, AST,
         },
     };
 
@@ -990,7 +1023,22 @@ mod tests {
     #[test]
     fn missing_return_expression() {
         let expected = vec![TypecheckError {
-            kind: TEK::ReturnWithoutExpression(Identifier::new(b"int", (5, 8))),
+            kind: TEK::ReturnWithoutExpression(
+                zPAR_TYPE::Int,
+                Symbol {
+                    id: 1,
+                    file_id: 0,
+                    kind: SymbolKind::Func(Function {
+                        name: Identifier::new(b"foo", (9, 12)),
+                        typ: Identifier::new(b"int", (5, 8)),
+                        params: vec![],
+                        body: vec![Statement::ReturnStatement(ReturnStatement {
+                            exp: None,
+                            span: (17, 24),
+                        })],
+                    }),
+                },
+            ),
             span: (17, 24),
             file_id: 0,
         }];
@@ -1002,7 +1050,25 @@ mod tests {
     #[test]
     fn return_expression_in_void_function() {
         let expected = vec![TypecheckError {
-            kind: TEK::ReturnExpressionInVoidFunction(zPAR_TYPE::Int),
+            kind: TEK::ReturnExpressionInVoidFunction(
+                zPAR_TYPE::Int,
+                Symbol {
+                    id: 1,
+                    file_id: 0,
+                    kind: SymbolKind::Func(Function {
+                        name: Identifier::new(b"foo", (10, 13)),
+                        typ: Identifier::new(b"void", (5, 9)),
+                        params: vec![],
+                        body: vec![Statement::ReturnStatement(ReturnStatement {
+                            exp: Some(Expression::Int(IntNode {
+                                value: 3,
+                                span: (25, 26),
+                            })),
+                            span: (18, 27),
+                        })],
+                    }),
+                },
+            ),
             span: (18, 27),
             file_id: 0,
         }];
@@ -1015,8 +1081,23 @@ mod tests {
     fn wrong_return_expression_type() {
         let expected = vec![TypecheckError {
             kind: TEK::ReturnExpressionDoesNotMatchReturnType(
-                Identifier::new(b"int", (5, 8)),
                 zPAR_TYPE::String,
+                Symbol {
+                    id: 1,
+                    file_id: 0,
+                    kind: SymbolKind::Func(Function {
+                        name: Identifier::new(b"foo", (9, 12)),
+                        typ: Identifier::new(b"int", (5, 8)),
+                        params: vec![],
+                        body: vec![Statement::ReturnStatement(ReturnStatement {
+                            exp: Some(Expression::String(StringLiteral {
+                                data: PrintableByteVec(b"hello".to_vec()),
+                                span: (17, 32),
+                            })),
+                            span: (24, 31),
+                        })],
+                    }),
+                },
             ),
             span: (24, 31),
             file_id: 0,
