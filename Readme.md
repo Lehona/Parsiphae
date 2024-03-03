@@ -14,3 +14,4 @@ After downloading or building Parsiphae, call `parsiphae.exe --src "path\to\Goth
 * Symbols should have an associated file_id, otherwise span information is pointless.
 * Typechecking in instances has to consider member variable lookups
 * Implement a fuzzy lookup mechanism to improve error messages.
+* Redefined identifier not caught atm

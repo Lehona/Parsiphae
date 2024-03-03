@@ -1,12 +1,17 @@
 use crate::file::db::FileId;
 use codespan_reporting::diagnostic::Label as LabelReporting;
+use derive_builder::Builder;
 
+#[derive(Builder, Clone)]
+#[builder(pattern = "owned", setter(into))]
 pub struct Diagnostic {
     pub message: String,
     pub code: String,
+    #[builder(setter(each(name = "label")))]
     pub labels: Vec<Label>,
 }
 
+#[derive(Clone)]
 pub struct Label {
     pub file_id: FileId,
     pub span: (usize, usize),

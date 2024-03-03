@@ -435,12 +435,17 @@ impl<'a> TypeChecker<'a> {
         let right_type = self.typecheck_expression(&ass.exp, scope, file_id)?;
 
         if !left_type.compatible(&right_type) {
+            let left_symbol = self
+                .parsed_syms
+                .lookup_symbol(&ass.var.name, scope)
+                .cloned();
             self.errors.push(TypecheckError {
                 kind: TEK::AssignmentWrongTypes(
                     left_type,
                     ass.var.span,
                     right_type,
                     ass.exp.get_span(),
+                    left_symbol,
                 ),
                 span: (ass.span),
                 file_id,
@@ -791,6 +796,7 @@ impl<'a> TypeChecker<'a> {
                     decl.typ.span,
                     expression_type,
                     decl.initializer.get_span(),
+                    None,
                 ),
                 span: decl.span,
                 file_id,
@@ -1131,7 +1137,13 @@ mod tests {
     #[test]
     fn wrong_const_decl() {
         let expected = vec![TypecheckError {
-            kind: TEK::AssignmentWrongTypes(zPAR_TYPE::Int, (6, 9), zPAR_TYPE::String, (16, 19)),
+            kind: TEK::AssignmentWrongTypes(
+                zPAR_TYPE::Int,
+                (6, 9),
+                zPAR_TYPE::String,
+                (16, 19),
+                None,
+            ),
             span: (0, 20),
             file_id: 0,
         }];

@@ -1,4 +1,4 @@
-use crate::diagnostics::diagnostics::{Diagnostic, Label};
+use crate::diagnostics::diagnostics::{Diagnostic, DiagnosticBuilder, Label};
 use crate::file::db::FileId;
 use crate::types::parsed::{Symbol, SymbolKind};
 use crate::types::{parsed::zPAR_TYPE, Identifier};
@@ -34,8 +34,8 @@ pub enum TypecheckErrorKind {
     FunctionCallWrongAmountOfParameters(usize, usize),
     BinaryExpressionNotInt,
     UnaryExpressionNotInt,
-    /// Left type and left side span, right type and right side span
-    AssignmentWrongTypes(zPAR_TYPE, Span, zPAR_TYPE, Span),
+    /// Left type and left side span, right type and right side span. For non-consts the definition is also given in the last param.
+    AssignmentWrongTypes(zPAR_TYPE, Span, zPAR_TYPE, Span, Option<Symbol>),
     /// Left type and left side span, right type and right side span
     WrongTypeInArrayInitialization(zPAR_TYPE, Span, zPAR_TYPE, Span),
     /// String does not support anything besides Assignment (no +=, *=, ...)
@@ -103,7 +103,7 @@ impl TypecheckError {
             TypecheckErrorKind::FunctionCallWrongAmountOfParameters(_, _) => "TC010".into(),
             TypecheckErrorKind::BinaryExpressionNotInt => "TC011".into(),
             TypecheckErrorKind::UnaryExpressionNotInt => "TC012".into(),
-            TypecheckErrorKind::AssignmentWrongTypes(_, _, _, _) => "TC013".into(),
+            TypecheckErrorKind::AssignmentWrongTypes(_, _, _, _, _) => "TC013".into(),
             TypecheckErrorKind::WrongTypeInArrayInitialization(_, _, _, _) => "TC014".into(),
             TypecheckErrorKind::CanOnlyAssignToString => "TC015".into(),
             TypecheckErrorKind::CanOnlyAssignToFloat => "TC016".into(),
@@ -251,8 +251,50 @@ impl TypecheckError {
             TypecheckErrorKind::FunctionCallWrongAmountOfParameters(_, _) => todo!(),
             TypecheckErrorKind::BinaryExpressionNotInt => todo!(),
             TypecheckErrorKind::UnaryExpressionNotInt => todo!(),
-            TypecheckErrorKind::AssignmentWrongTypes(_, _, _, _) => todo!(),
-            TypecheckErrorKind::WrongTypeInArrayInitialization(_, _, _, _) => todo!(),
+            TypecheckErrorKind::AssignmentWrongTypes(lhs, lhs_span, rhs, rhs_span, symb) => {
+                let mut builder = DiagnosticBuilder::default()
+                .message("Wrong type in assignment.")
+                .code(code)
+                .label(Label {
+                    message: format!("This has type '{rhs}', but the left-hand-side is of type '{lhs}'."),
+                    file_id: self.file_id,
+                    span: *rhs_span,
+                    primary: true,
+                })
+                .label(Label {
+                        message: format!("This is type '{lhs}'."),
+                        file_id: self.file_id,
+                        span: *lhs_span,
+                        primary: false,
+                });
+                if let Some(symb) = symb {
+                    builder = builder.label(Label {
+                        message: format!("The variable is defined here."),
+                        file_id: symb.file_id,
+                        span: symb.kind.span(),
+                        primary: false,
+                    });
+                }
+                builder.build().unwrap()
+            }
+            TypecheckErrorKind::WrongTypeInArrayInitialization(lhs, lhs_span, rhs, rhs_span) => Diagnostic {
+                message: format!("Wrong type in array initialization."),
+                code,
+                labels: vec![
+                    Label {
+                        message: format!("This has type '{rhs}', but the array is of type '{lhs}'."),
+                        file_id: self.file_id,
+                        span: *rhs_span,
+                        primary: true,
+                    },
+                    Label {
+                        message: format!("The array type '{lhs}' is declared here."),
+                        file_id: self.file_id,
+                        span: *lhs_span,
+                        primary: false,
+                    }
+                ]
+            },
             TypecheckErrorKind::CanOnlyAssignToString => Diagnostic {
                 message: format!("Strings only support assignment (no +=, *=, ...)."),
                 code,
