@@ -15,3 +15,5 @@ After downloading or building Parsiphae, call `parsiphae.exe --src "path\to\Goth
 * Typechecking in instances has to consider member variable lookups
 * Implement a fuzzy lookup mechanism to improve error messages.
 * Redefined identifier not caught atm
+* Better type compatibility check on function parameters (all instances are compatible, instances into int parameters are compatible
+* Fix decoding in files with umlauts.

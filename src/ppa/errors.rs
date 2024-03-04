@@ -31,9 +31,9 @@ pub enum TypecheckErrorKind {
     /// Parameter has type 1 but Expression has type 2
     FunctionCallParameterWrongType(zPAR_TYPE, zPAR_TYPE),
     /// Expected parameters, actual parameters
-    FunctionCallWrongAmountOfParameters(usize, usize),
-    BinaryExpressionNotInt,
-    UnaryExpressionNotInt,
+    FunctionCallWrongAmountOfParameters(usize, usize, Symbol),
+    BinaryExpressionNotInt(zPAR_TYPE),
+    UnaryExpressionNotInt(zPAR_TYPE),
     /// Left type and left side span, right type and right side span. For non-consts the definition is also given in the last param.
     AssignmentWrongTypes(zPAR_TYPE, Span, zPAR_TYPE, Span, Option<Symbol>),
     /// Left type and left side span, right type and right side span
@@ -100,9 +100,9 @@ impl TypecheckError {
             TypecheckErrorKind::UnknownIdentifierInExpression(_) => "TC007".into(),
             TypecheckErrorKind::IdentifierIsClassInExpression(_, _) => "TC008".into(),
             TypecheckErrorKind::FunctionCallParameterWrongType(_, _) => "TC009".into(),
-            TypecheckErrorKind::FunctionCallWrongAmountOfParameters(_, _) => "TC010".into(),
-            TypecheckErrorKind::BinaryExpressionNotInt => "TC011".into(),
-            TypecheckErrorKind::UnaryExpressionNotInt => "TC012".into(),
+            TypecheckErrorKind::FunctionCallWrongAmountOfParameters(_, _, _) => "TC010".into(),
+            TypecheckErrorKind::BinaryExpressionNotInt(_) => "TC011".into(),
+            TypecheckErrorKind::UnaryExpressionNotInt(_) => "TC012".into(),
             TypecheckErrorKind::AssignmentWrongTypes(_, _, _, _, _) => "TC013".into(),
             TypecheckErrorKind::WrongTypeInArrayInitialization(_, _, _, _) => "TC014".into(),
             TypecheckErrorKind::CanOnlyAssignToString => "TC015".into(),
@@ -247,10 +247,50 @@ impl TypecheckError {
                     }
                 ]
             },
-            TypecheckErrorKind::FunctionCallParameterWrongType(_, _) => todo!(),
-            TypecheckErrorKind::FunctionCallWrongAmountOfParameters(_, _) => todo!(),
-            TypecheckErrorKind::BinaryExpressionNotInt => todo!(),
-            TypecheckErrorKind::UnaryExpressionNotInt => todo!(),
+            TypecheckErrorKind::FunctionCallParameterWrongType(expected, actual) => DiagnosticBuilder::default()
+                .message("Function parameter has the wrong type.")
+                .code(code)
+                .label(Label {
+                    message: format!("This expression has type '{actual}', but the function expects a parameter of type '{expected}'."),
+                    file_id: self.file_id,
+                    span: self.span,
+                    primary: true,
+                })
+                .build().unwrap(),
+            TypecheckErrorKind::FunctionCallWrongAmountOfParameters(expected, actual, func) => DiagnosticBuilder::default()
+                .message(format!("This function call takes {expected} parameters, but {actual} parameters were supplied."))
+                .code(code)
+                .label(Label {
+                    message: format!("This function call provides {actual} parameters, but the function '{func}' expects {expected} parameters.", func = String::from_utf8_lossy(&func.kind.name())),
+                    file_id: self.file_id,
+                    span: self.span,
+                    primary: true,
+                })
+                .label(Label {
+                    message: format!("The function '{func}' is defined here.", func = String::from_utf8_lossy(&func.kind.name())),
+                    file_id: func.file_id,
+                    span: func.kind.span(),
+                    primary: false,
+                })
+                .build().unwrap(),
+            TypecheckErrorKind::BinaryExpressionNotInt(typ) => DiagnosticBuilder::default()
+                .message("Binary operators can only be applied to integers.")
+                .code(code)
+                .label(Label {
+                    message: format!("This expression has type '{typ}', but only integers are allowed in binary expressions."),
+                    file_id: self.file_id,
+                    span: self.span,
+                    primary: true,
+                }).build().unwrap(),
+            TypecheckErrorKind::UnaryExpressionNotInt(typ) => DiagnosticBuilder::default()
+                .message("Unary operators can only be applied to integers.")
+                .code(code)
+                .label(Label {
+                    message: format!("This expression has type '{typ}', but only integers are allowed in unary expressions."),
+                    file_id: self.file_id,
+                    span: self.span,
+                    primary: true,
+                }).build().unwrap(),
             TypecheckErrorKind::AssignmentWrongTypes(lhs, lhs_span, rhs, rhs_span, symb) => {
                 let mut builder = DiagnosticBuilder::default()
                 .message("Wrong type in assignment.")

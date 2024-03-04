@@ -320,7 +320,7 @@ impl<'a> TypeChecker<'a> {
             Float(_) => Ok(zPAR_TYPE::Float),
             String(_) => Ok(zPAR_TYPE::String),
             Call(ref call) => {
-                let (target_params, target_type) = match self
+                let (target_params, target_type, func) = match self
                     .parsed_syms
                     .lookup_symbol(&call.func, scope)
                 {
@@ -339,10 +339,13 @@ impl<'a> TypeChecker<'a> {
                                 .map(|param| zPAR_TYPE::from_ident(&param.typ))
                                 .collect(),
                             zPAR_TYPE::from_ident(&func.typ),
+                            symb,
                         ),
-                        parsed::SymbolKind::External(external) => {
-                            (external.parameters.clone(), external.return_type.clone())
-                        }
+                        parsed::SymbolKind::External(external) => (
+                            external.parameters.clone(),
+                            external.return_type.clone(),
+                            symb,
+                        ),
                         _ => {
                             self.errors.push(TypecheckError {
                                 kind: TEK::FunctionCallWrongType(call.func.clone(), symb.clone()),
@@ -360,6 +363,7 @@ impl<'a> TypeChecker<'a> {
                         kind: TEK::FunctionCallWrongAmountOfParameters(
                             target_params.len(),
                             call.params.len(),
+                            func.clone(),
                         ),
                         span: call.span,
                         file_id,
@@ -390,14 +394,14 @@ impl<'a> TypeChecker<'a> {
                 } else {
                     if left != zPAR_TYPE::Int {
                         self.errors.push(TypecheckError {
-                            kind: TEK::BinaryExpressionNotInt,
+                            kind: TEK::BinaryExpressionNotInt(left),
                             span: bin.left.get_span(),
                             file_id,
                         });
                     }
                     if right != zPAR_TYPE::Int {
                         self.errors.push(TypecheckError {
-                            kind: TEK::BinaryExpressionNotInt,
+                            kind: TEK::BinaryExpressionNotInt(right),
                             span: bin.right.get_span(),
                             file_id,
                         });
@@ -414,7 +418,7 @@ impl<'a> TypeChecker<'a> {
                     Ok(inner_type)
                 } else {
                     self.errors.push(TypecheckError {
-                        kind: TEK::UnaryExpressionNotInt,
+                        kind: TEK::UnaryExpressionNotInt(inner_type),
                         span: un.right.get_span(),
                         file_id,
                     });
@@ -1017,7 +1021,7 @@ mod tests {
     #[test]
     fn mixing_float_and_int() {
         let expected = vec![TypecheckError {
-            kind: TEK::BinaryExpressionNotInt,
+            kind: TEK::BinaryExpressionNotInt(zPAR_TYPE::Float),
             span: (21, 24),
             file_id: 0,
         }];
@@ -1098,9 +1102,9 @@ mod tests {
                         body: vec![Statement::ReturnStatement(ReturnStatement {
                             exp: Some(Expression::String(StringLiteral {
                                 data: PrintableByteVec(b"hello".to_vec()),
-                                span: (17, 32),
+                                span: (24, 31),
                             })),
-                            span: (24, 31),
+                            span: (17, 32),
                         })],
                     }),
                 },
@@ -1115,7 +1119,7 @@ mod tests {
     #[test]
     fn mixing_int_and_string() {
         let expected = vec![TypecheckError {
-            kind: TEK::BinaryExpressionNotInt,
+            kind: TEK::BinaryExpressionNotInt(zPAR_TYPE::String),
             span: (35, 36),
             file_id: 0,
         }];
@@ -1126,7 +1130,7 @@ mod tests {
     #[test]
     fn mixing_string_and_int() {
         let expected = vec![TypecheckError {
-            kind: TEK::BinaryExpressionNotInt,
+            kind: TEK::BinaryExpressionNotInt(zPAR_TYPE::String),
             span: (31, 32),
             file_id: 0,
         }];
@@ -1227,7 +1231,7 @@ mod tests {
     #[test]
     fn basic_member_wrong_type() {
         let expected = vec![TypecheckError {
-            kind: TEK::BinaryExpressionNotInt,
+            kind: TEK::BinaryExpressionNotInt(zPAR_TYPE::String),
             span: (91, 98),
             file_id: 0,
         }];
